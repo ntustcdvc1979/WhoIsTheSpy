@@ -16,7 +16,7 @@
       <div class="seal">臥底</div>
       <div>
         <h1 class="brand-title">誰是臥底</h1>
-        <div class="brand-sub" id="roomLabel">周杰倫 ╳ 方文山</div>
+        <div class="brand-sub" id="roomLabel">分組推理遊戲</div>
       </div>
     </div>
     <button class="btn ghost small" id="btnSwitchRoom" hidden>換房間</button>
@@ -60,7 +60,15 @@
       </div>
 
       <div style="margin-top:18px">
-        <div class="status-pill" id="statusPill">等待主持人開始……</div>
+        <!-- 待命：主持人尚未按開始 -->
+        <div class="card standby" id="standbyBox">
+          <div class="seal big">待命</div>
+          <h2 id="standbyTitle">待命中</h2>
+          <p class="muted" id="standbyText">主持人尚未開始遊戲，請稍候</p>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="status-pill" id="statusPill" hidden></div>
 
         <!-- 答案 -->
         <div id="wordBox" hidden>

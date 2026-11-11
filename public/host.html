@@ -14,8 +14,11 @@
     <div class="brand">
       <div class="seal">主持</div>
       <div>
-        <h1 class="brand-title">誰是臥底・主持台</h1>
-        <div class="brand-sub">周杰倫 ╳ 方文山</div>
+        <h1 class="brand-title">誰是臥底</h1>
+        <nav class="host-nav" data-host-only hidden>
+          <a href="host.html" class="active">主控台</a>
+          <a href="questions.html">題目設計</a>
+        </nav>
       </div>
     </div>
     <div class="row" id="userBox" hidden>
@@ -50,7 +53,7 @@
           <a id="createdScreen" target="_blank">開啟投影幕</a>
         </div>
 
-        <div id="hostOnlyBox" hidden>
+        <div id="hostOnlyBox" data-host-only hidden>
           <hr style="border:0;border-top:1px dashed var(--paper-3);margin:20px 0">
           <label for="resumeCode">主持人：輸入房號進入主控台（可操控任何房間）</label>
           <div class="row" style="margin-top:6px">
@@ -104,10 +107,10 @@
               <button class="btn ghost small" data-dur="180">3 分</button>
               <button class="btn ghost small" data-dur="300">5 分</button>
             </div>
-            <div class="row">
-              <button class="btn red grow" id="btnStart">開始！發送答案</button>
+            <button class="btn red block" id="btnStart" style="font-size:1.4rem;padding:18px">開始遊戲</button>
+            <div class="row" style="margin-top:10px">
               <button class="btn blue grow" id="btnReveal">揭曉臥底</button>
-              <button class="btn ghost grow" id="btnLobby">回到大廳</button>
+              <button class="btn ghost grow" id="btnLobby">結束本輪・回到待命</button>
             </div>
             <p class="muted" id="ctrlHint" style="margin:10px 0 0"></p>
           </div>
@@ -126,13 +129,9 @@
         <!-- 題目 -->
         <div>
           <div class="card">
-            <div class="card-title">題目設定（五題）</div>
-            <div class="q-row q-head"><span></span><span>平民詞（多數組）</span><span>臥底詞（只有一組）</span></div>
-            <div id="questionRows"></div>
-            <div class="row" style="justify-content:space-between;margin-top:12px">
-              <span class="muted" id="qSaved"></span>
-              <button class="btn red" id="btnSaveQ">儲存題目</button>
-            </div>
+            <div class="card-title">本場題目 <span class="grow"></span><a class="btn ghost small" href="questions.html">編輯題目</a></div>
+            <ul class="q-preview" id="qPreview"></ul>
+            <p class="muted" id="qNote" style="margin:10px 0 0"></p>
           </div>
           <div class="card">
             <div class="card-title">連結</div>

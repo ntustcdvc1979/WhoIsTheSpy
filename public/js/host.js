@@ -1,74 +1,37 @@
-import { auth, db, $, esc, toast, showView, normalizeCode, remainingSeconds, fmtTime, randomId, playerUrl, screenUrl, friendlyError, createRoom, CN_NUM, QUESTION_COUNT } from "./common.js";
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { db, $, esc, toast, showView, normalizeCode, remainingSeconds, fmtTime, randomId, playerUrl, screenUrl, friendlyError, createRoom, CN_NUM, QUESTION_COUNT, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
+import { initHostAuth } from "./host-auth.js";
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, query, orderBy,
+  doc, getDoc, updateDoc, collection, onSnapshot, query, orderBy,
   serverTimestamp, writeBatch, getDocs, where,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const LS_ROOM = "wits.hostRoom";
 
-// 預設題目（可在主持台修改）
-const DEFAULT_QUESTIONS = [
-  { normal: "龍捲風", spy: "颱風" },
-  { normal: "雙截棍", spy: "三節棍" },
-  { normal: "珍珠奶茶", spy: "椰果奶茶" },
-  { normal: "青花瓷", spy: "白瓷" },
-  { normal: "蝸牛", spy: "蛞蝓" },
-];
-
 let user = null;
 let code = null;
 let room = null;
 let groups = [];
-let questions = DEFAULT_QUESTIONS.map((q) => ({ ...q }));
+let questions = normalizeQuestions(DEFAULT_QUESTIONS);
+let bankSaved = false;
 let secret = null; // rooms/{code}/private/state
 let unsubs = [];
 let tick = null;
-
-/* ---------------- 登入 ---------------- */
 let isHostUser = false;
 
-onAuthStateChanged(auth, async (u) => {
-  if (u && !u.isAnonymous) {
-    user = u;
-    $("#userBox").hidden = false;
-    $("#userName").textContent = u.displayName || u.email || "";
-    isHostUser = await checkHost();
-    $("#notHostBox").hidden = isHostUser;
-    $("#hostOnlyBox").hidden = !isHostUser;
-    const saved = normalizeCode(localStorage.getItem(LS_ROOM));
-    if (isHostUser && saved && (await tryOpenRoom(saved, true))) return;
-    showView("pick");
-  } else {
-    user = null;
-    isHostUser = false;
-    $("#userBox").hidden = true;
-    cleanup();
-    showView("login");
-  }
+/* ---------------- 登入 ---------------- */
+initHostAuth(async (u, isHost) => {
+  user = u;
+  isHostUser = isHost;
+  $("#notHostBox").hidden = isHost;
+  const saved = normalizeCode(localStorage.getItem(LS_ROOM));
+  if (isHost && saved && (await tryOpenRoom(saved, true))) return;
+  showView("pick");
+}, () => {
+  user = null;
+  isHostUser = false;
+  cleanup();
+  showView("login");
 });
-
-/** 能讀到 admin/hosts 就代表在白名單內（規則只允許白名單讀） */
-async function checkHost() {
-  try {
-    await getDoc(doc(db, "admin", "hosts"));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-$("#btnGoogle").onclick = async () => {
-  const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (e) {
-    if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
-      await signInWithRedirect(auth, provider);
-    } else toast(friendlyError(e));
-  }
-};
-$("#btnSignOut").onclick = () => signOut(auth);
 
 /* ---------------- 房間 ---------------- */
 // 建立房間：任何人都可以；主持人建立後直接進入主控台
@@ -137,20 +100,20 @@ async function openRoom(c) {
   $("#linkScreen").textContent = screenUrl(c);
   showView("room");
 
-  // 題目
-  questions = DEFAULT_QUESTIONS.map((q) => ({ ...q }));
-  try {
-    const qs = await getDoc(doc(db, "rooms", c, "questions", "main"));
-    if (qs.exists() && Array.isArray(qs.data().list)) questions = normalizeQuestions(qs.data().list);
-    else $("#qSaved").textContent = "使用預設題目（尚未儲存）";
-  } catch (e) { toast(friendlyError(e)); }
-  renderQuestions();
+  // 題目（題庫，題目設計頁儲存後即時更新）
+  unsubs.push(onSnapshot(doc(db, "bank", "questions"), (s) => {
+    bankSaved = s.exists();
+    questions = normalizeQuestions(bankSaved ? s.data().list : DEFAULT_QUESTIONS);
+    renderQuestions();
+    renderControls();
+  }, (e) => toast(friendlyError(e))));
 
   unsubs.push(onSnapshot(doc(db, "rooms", c), (s) => {
     room = s.data() || null;
     if (room && document.activeElement !== $("#inpDuration")) $("#inpDuration").value = room.duration || 180;
     renderControls();
     renderGroups();
+    renderQuestions();
   }, (e) => toast(friendlyError(e))));
 
   unsubs.push(onSnapshot(query(collection(db, "rooms", c, "groups"), orderBy("createdAt")), (s) => {
@@ -167,48 +130,25 @@ async function openRoom(c) {
   tick = setInterval(renderTimer, 250);
 }
 
-/* ---------------- 題目 ---------------- */
-function normalizeQuestions(list) {
-  const out = [];
-  for (let i = 0; i < QUESTION_COUNT; i++) {
-    const q = list[i] || {};
-    out.push({ normal: String(q.normal || ""), spy: String(q.spy || "") });
-  }
-  return out;
-}
-
+/* ---------------- 題目（唯讀預覽） ---------------- */
 function renderQuestions() {
-  $("#questionRows").innerHTML = questions.map((q, i) => `
-    <div class="q-row">
-      <div class="q-no">第${CN_NUM[i]}題</div>
-      <input type="text" maxlength="20" data-q="${i}" data-k="normal" value="${esc(q.normal)}" placeholder="平民詞">
-      <input type="text" maxlength="20" data-q="${i}" data-k="spy" value="${esc(q.spy)}" placeholder="臥底詞">
-    </div>`).join("");
-  $("#questionRows").querySelectorAll("input").forEach((inp) => {
-    inp.oninput = () => {
-      questions[inp.dataset.q][inp.dataset.k] = inp.value.trim();
-      $("#qSaved").textContent = "尚未儲存";
-      renderQuestionSelect();
-    };
-  });
-  renderQuestionSelect();
-}
-
-function renderQuestionSelect() {
+  const cur = room?.status !== "lobby" ? room?.round : Number($("#selQuestion").value);
+  $("#qPreview").innerHTML = questions.map((q, i) => `
+    <li class="${i === cur ? "current" : ""}">
+      <span class="q-no">第${CN_NUM[i]}題</span>
+      <span>${esc(q.normal || "（未填）")}</span>
+      <span class="spyw">${esc(q.spy || "（未填）")}</span>
+    </li>`).join("");
+  $("#qNote").textContent = bankSaved ? "左：平民詞　右：臥底詞" : "目前使用範例題目，可到「題目設計」修改並儲存。";
   const sel = $("#selQuestion");
-  const cur = sel.value;
-  sel.innerHTML = questions.map((q, i) =>
-    `<option value="${i}">第${CN_NUM[i]}題：${esc(q.normal || "（未填）")} ／ ${esc(q.spy || "（未填）")}</option>`).join("");
-  if (cur !== "") sel.value = cur;
+  const val = sel.value;
+  sel.innerHTML = questions.map((q, i) => {
+    const bad = questionProblem(q);
+    return `<option value="${i}">第${CN_NUM[i]}題${bad ? "（" + bad + "）" : ""}</option>`;
+  }).join("");
+  if (val !== "") sel.value = val;
 }
-
-$("#btnSaveQ").onclick = async () => {
-  try {
-    await setDoc(doc(db, "rooms", code, "questions", "main"), { list: questions });
-    $("#qSaved").textContent = "已儲存 ✓";
-    toast("題目已儲存");
-  } catch (e) { toast(friendlyError(e)); }
-};
+$("#selQuestion").onchange = () => { renderQuestions(); renderControls(); };
 
 /* ---------------- 組別 ---------------- */
 function renderGroups() {
@@ -278,12 +218,12 @@ function renderControls() {
   $("#btnReveal").disabled = st !== "playing";
   $("#btnLobby").disabled = st === "lobby";
   $("#selQuestion").disabled = st !== "lobby";
-  const label = { lobby: "大廳等待中", playing: `第${CN_NUM[room.round] || ""}題進行中`, revealed: `第${CN_NUM[room.round] || ""}題已揭曉` }[st] || st;
+  const label = { lobby: "待命中（尚未開始）", playing: `第${CN_NUM[room.round] || ""}題進行中`, revealed: `第${CN_NUM[room.round] || ""}題已揭曉` }[st] || st;
   $("#statusText").textContent = label;
   $("#ctrlHint").textContent =
-    st === "lobby" ? (active < 2 ? "至少需要 2 組在場才能開始。" : `按下開始後，${active} 組會各自收到答案，其中隨機一組是臥底。`)
+    st === "lobby" ? (active < 2 ? "玩家畫面為待命狀態。至少需要 2 組在場才能開始。" : `玩家畫面為待命狀態。按下「開始遊戲」後，${active} 組會各自收到答案，其中隨機一組是臥底。`)
     : st === "playing" ? "答案已發送，投影幕開始倒數。討論結束後按「揭曉臥底」。"
-    : "已揭曉。按「回到大廳」準備下一題。";
+    : "已揭曉。按「結束本輪・回到待命」準備下一題。";
 }
 
 function renderTimer() {
@@ -297,8 +237,8 @@ function renderTimer() {
 $("#btnStart").onclick = async () => {
   const idx = Number($("#selQuestion").value) || 0;
   const q = questions[idx];
-  if (!q.normal || !q.spy) return toast("這一題的平民詞或臥底詞還沒填");
-  if (q.normal === q.spy) return toast("平民詞和臥底詞不能一樣");
+  const bad = questionProblem(q);
+  if (bad) return toast(`這一題${bad}，請先到「題目設計」修改`);
   const active = groups.filter((g) => !g.eliminated);
   if (active.length < 2) return toast("至少需要 2 組在場");
   if (active.length === 2 && !confirm("只有 2 組，確定要開始嗎？")) return;
@@ -310,8 +250,6 @@ $("#btnStart").onclick = async () => {
   const btn = $("#btnStart");
   btn.disabled = true;
   try {
-    // 先存題目，避免主持人忘記按儲存
-    await setDoc(doc(db, "rooms", code, "questions", "main"), { list: questions });
     const batch = writeBatch(db);
     active.forEach((g) => {
       batch.set(doc(db, "rooms", code, "words", g.id), {
@@ -327,8 +265,7 @@ $("#btnStart").onclick = async () => {
       status: "playing", round: idx, roundId, duration, startedAt: serverTimestamp(), reveal: null,
     });
     await batch.commit();
-    $("#qSaved").textContent = "已儲存 ✓";
-    toast("答案已發送，開始倒數！");
+    toast("遊戲開始！答案已發送");
   } catch (e) {
     toast(friendlyError(e));
   } finally {
@@ -357,6 +294,6 @@ $("#btnLobby").onclick = async () => {
     words.forEach((d) => batch.delete(d.ref));
     batch.update(doc(db, "rooms", code), { status: "lobby", roundId: null, reveal: null, startedAt: null });
     await batch.commit();
-    if (room?.status === "revealed") $("#selQuestion").value = String(next);
+    if (room?.status === "revealed") { $("#selQuestion").value = String(next); renderQuestions(); }
   } catch (e) { toast(friendlyError(e)); }
 };

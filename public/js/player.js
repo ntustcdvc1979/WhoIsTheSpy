@@ -192,14 +192,21 @@ function render() {
   const roundName = `第${CN_NUM[room.round] || ""}題`;
   const hasWord = word && word.roundId && word.roundId === room.roundId;
 
+  // 只要主持人沒按「開始遊戲」，就是待命畫面；出局組另外顯示出局
+  const standby = !myGroup.eliminated && (st === "lobby" || (st === "playing" && !hasWord));
+  $("#standbyBox").hidden = !standby;
   $("#outBox").hidden = !myGroup.eliminated || st === "revealed";
   $("#wordBox").hidden = !(st === "playing" && hasWord);
   $("#resultBox").hidden = st !== "revealed";
+  $("#statusPill").hidden = standby || (myGroup.eliminated && st !== "revealed");
 
   if (st === "lobby") {
-    $("#statusPill").textContent = myGroup.eliminated ? "本組已出局" : "等待主持人開始……";
+    $("#standbyTitle").textContent = "待命中";
+    $("#standbyText").textContent = "主持人尚未開始遊戲，請稍候";
   } else if (st === "playing") {
-    $("#statusPill").textContent = hasWord ? `${roundName}・你們的答案是` : myGroup.eliminated ? `${roundName}進行中` : `${roundName}・接收答案中……`;
+    $("#standbyTitle").textContent = "發送答案中";
+    $("#standbyText").textContent = `${roundName}・正在接收你們的答案`;
+    $("#statusPill").textContent = `${roundName}・你們的答案是`;
   } else if (st === "revealed") {
     $("#statusPill").textContent = `${roundName}・揭曉`;
     const r = room.reveal || {};

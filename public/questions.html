@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>題目設計 · 誰是臥底</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-host">
+  <div class="meander"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">主持</div>
+      <div>
+        <h1 class="brand-title">誰是臥底</h1>
+        <nav class="host-nav" data-host-only hidden>
+          <a href="host.html">主控台</a>
+          <a href="questions.html" class="active">題目設計</a>
+        </nav>
+      </div>
+    </div>
+    <div class="row" id="userBox" hidden>
+      <span class="muted" id="userName"></span>
+      <button class="btn ghost small" id="btnSignOut">登出</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section data-view="loading"><p class="muted">研墨中……</p></section>
+
+    <section data-view="login" hidden>
+      <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
+        <div class="seal big" style="margin-bottom:14px">題</div>
+        <h2>題目設計</h2>
+        <p class="muted">僅限主持人，請使用 Google 帳號登入</p>
+        <button class="btn red block" id="btnGoogle">以 Google 帳號登入</button>
+      </div>
+    </section>
+
+    <section data-view="denied" hidden>
+      <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
+        <h2>無法編輯題目</h2>
+        <p class="muted">此帳號不在主持人白名單內。</p>
+      </div>
+    </section>
+
+    <section data-view="editor" hidden>
+      <div class="q-toolbar">
+        <div>
+          <h2 style="margin:0">題目設計</h2>
+          <p class="muted" style="margin:0">共五題。每一輪隨機一組拿到「臥底詞」，其他組拿到「平民詞」。兩個詞要相近但不同。</p>
+        </div>
+        <div class="row">
+          <span class="muted" id="saveState"></span>
+          <button class="btn ghost" id="btnDefault">還原範例題目</button>
+          <button class="btn red" id="btnSave">儲存題目</button>
+        </div>
+      </div>
+
+      <div class="q-cards" id="qCards"></div>
+    </section>
+  </main>
+
+  <script type="module" src="js/questions.js"></script>
+</body>
+</html>

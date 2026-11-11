@@ -322,3 +322,51 @@ label { font-size: .9rem; color: var(--ink-soft); }
 .cloud-deco { position: absolute; width: 18vw; max-width: 260px; opacity: .14; pointer-events: none; }
 .cloud-deco.tl { top: 0; left: 1vw; }
 .cloud-deco.br { bottom: 0; right: 1vw; transform: scaleX(-1); }
+
+/* =========================================================
+   主持人導覽列 / 題目設計頁
+   ========================================================= */
+.host-nav { display: flex; gap: 4px; margin-top: 2px; }
+.host-nav a {
+  text-decoration: none; color: var(--ink-soft); font-size: .9rem; letter-spacing: .15em;
+  padding: 2px 10px; border-radius: 3px; border: 1px solid transparent;
+}
+.host-nav a:hover { border-color: var(--paper-3); }
+.host-nav a.active { background: var(--porcelain); color: var(--paper); }
+
+.q-toolbar {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.q-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.q-cards .card + .card { margin-top: 0; }
+.q-card { border-top: 4px solid var(--porcelain); }
+.q-card.bad { border-top-color: var(--cinnabar); }
+.q-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.q-card-head .q-no { text-align: left; font-size: 1.3rem; }
+.q-card-head .q-problem { flex: 1; color: var(--cinnabar); font-size: .85rem; }
+.q-fields { display: grid; gap: 10px; }
+.q-fields label { display: grid; gap: 4px; }
+.q-fields input { font-size: 1.2rem; }
+
+.q-preview { list-style: none; margin: 0; padding: 0; }
+.q-preview li { display: grid; grid-template-columns: 72px 1fr 1fr; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--paper-3); }
+.q-preview li:last-child { border-bottom: 0; }
+.q-preview .spyw { color: var(--cinnabar); }
+.q-preview li.current { background: var(--porcelain-light); }
+
+/* =========================================================
+   玩家待命畫面
+   ========================================================= */
+.standby { text-align: center; padding: 36px 16px 30px; }
+.standby .seal { margin: 0 auto 18px; animation: breathe 2.4s ease-in-out infinite; }
+.standby h2 { font-size: 1.8rem; letter-spacing: .3em; margin-bottom: 6px; }
+.standby .dots span {
+  display: inline-block; width: 8px; height: 8px; margin: 0 4px; border-radius: 50%;
+  background: var(--porcelain); animation: dot 1.4s ease-in-out infinite;
+}
+.standby .dots span:nth-child(2) { animation-delay: .2s; }
+.standby .dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes breathe { 50% { transform: rotate(-4deg) scale(1.06); } }
+@keyframes dot { 0%, 80%, 100% { opacity: .2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-6px); } }
+.q-preview .q-no { white-space: nowrap; font-size: 1rem; }

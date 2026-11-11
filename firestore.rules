@@ -26,6 +26,14 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
+    // 題庫（題目設計頁）：只有白名單主持人可讀寫，玩家讀不到題目
+    match /bank/{docId} {
+      allow read: if isAllowedHost();
+      allow write: if isAllowedHost() && docId == 'questions'
+        && request.resource.data.list is list
+        && request.resource.data.list.size() <= 20;
+    }
+
     // 白名單主持人可以操控「任何」房間
     function isHost(code) { return isAllowedHost(); }
 
@@ -50,9 +58,8 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy;
       allow delete: if isAllowedHost();
 
-      // 題目與本輪臥底：只有主持人
-      match /questions/{docId} { allow read, write: if isHost(code); }
-      match /private/{docId}   { allow read, write: if isHost(code); }
+      // 本輪臥底：只有主持人
+      match /private/{docId} { allow read, write: if isHost(code); }
 
       // 每位玩家「目前所屬組別」的唯一指標，用來保證一個人同時只屬於一組。
       // 讀答案以這裡為準，所以就算有人把自己硬塞進好幾組的名單，也只讀得到一組的答案。

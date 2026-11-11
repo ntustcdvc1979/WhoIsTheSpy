@@ -31,6 +31,31 @@ export const db = getFirestore(app);
 export const CN_NUM = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 export const QUESTION_COUNT = 5;
 
+// 題庫存在 Firestore bank/questions（只有白名單主持人可讀寫）
+export const DEFAULT_QUESTIONS = [
+  { normal: "龍捲風", spy: "颱風" },
+  { normal: "雙截棍", spy: "三節棍" },
+  { normal: "珍珠奶茶", spy: "椰果奶茶" },
+  { normal: "青花瓷", spy: "白瓷" },
+  { normal: "蝸牛", spy: "蛞蝓" },
+];
+
+export function normalizeQuestions(list) {
+  const out = [];
+  for (let i = 0; i < QUESTION_COUNT; i++) {
+    const q = (Array.isArray(list) && list[i]) || {};
+    out.push({ normal: String(q.normal || "").trim(), spy: String(q.spy || "").trim() });
+  }
+  return out;
+}
+
+/** 回傳錯誤訊息；沒問題回傳空字串 */
+export function questionProblem(q) {
+  if (!q.normal || !q.spy) return "平民詞或臥底詞未填";
+  if (q.normal === q.spy) return "平民詞和臥底詞相同";
+  return "";
+}
+
 /** 等待第一次的登入狀態 */
 export function waitForUser() {
   return new Promise((resolve) => {

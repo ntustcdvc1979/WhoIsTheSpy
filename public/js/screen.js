@@ -65,6 +65,7 @@ function render() {
   if (!room) return;
   const st = room.status;
   showView(st === "playing" || st === "revealed" ? st : "lobby");
+  $("#screenRoom").textContent = { lobby: "待命中・等待主持人開始", playing: "遊戲進行中", revealed: "揭曉" }[st] || "";
 
   if (st === "lobby") {
     if (qrDone !== code && window.QRCode) {
