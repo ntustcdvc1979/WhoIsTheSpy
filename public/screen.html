@@ -31,11 +31,13 @@
       <!-- 輸入房號 -->
       <section data-view="code" hidden style="text-align:center">
         <h2 style="font-size:3rem;letter-spacing:.3em">投影幕</h2>
-        <p style="color:var(--s-dim)">請輸入主持台上的房號</p>
+        <p style="color:var(--s-dim)">輸入已有的房號</p>
         <div class="row" style="justify-content:center">
           <input type="text" id="inpCode" class="big-code-input" inputmode="numeric" maxlength="4" placeholder="0000" style="width:260px">
           <button class="btn red" id="btnEnter">開啟</button>
         </div>
+        <p style="color:var(--s-dim);margin-top:4vh">還沒有房間？</p>
+        <button class="btn red" id="btnCreateRoom" style="font-size:1.3rem;padding:14px 32px">建立新房間</button>
       </section>
 
       <section data-view="loading"><p style="color:var(--s-dim)">研墨中……</p></section>

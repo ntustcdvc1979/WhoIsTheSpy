@@ -4,14 +4,14 @@
 
 | 頁面 | 給誰用 | 功能 |
 | --- | --- | --- |
-| `host.html` | 主持人（筆電／平板） | Google 登入、建立房間、設定五題題目、管理組別、開始／揭曉／回大廳 |
+| `host.html` | 主持人（筆電／平板） | Google 登入（白名單）、輸入房號進入主控台、設定五題題目、管理組別、開始／揭曉／回大廳 |
 | `player.html` | 玩家（手機） | 輸入房號或掃碼、建立／加入組別、開始後看到本組答案（點一下翻開／蓋上） |
 | `screen.html` | 投影幕 | 大廳顯示 QR Code 與組別，開始後大字倒數，揭曉時顯示臥底組與兩組詞 |
 
 ## 遊戲流程
 
-1. 主持人開 `host.html` → Google 登入 → 建立新房間（得到四位數房號）。
-2. 投影幕開「開投影幕」連結（`screen.html?room=房號`），按右下角「全螢幕」。
+1. **任何人**都能建立房間：投影幕開 `screen.html` 按「建立新房間」（或在 `host.html` 建立），得到四位數房號。
+2. 主持人開 `host.html` → Google 登入（需在白名單）→ 輸入房號進入主控台；投影幕按右下角「全螢幕」。
 3. 玩家用手機掃投影幕 QR Code → 輸入組名建立組別，同組的人點「加入」。
 4. 主持人選題目、設定倒數秒數 → 按 **開始！發送答案**：
    - 所有在場組別收到答案；**隨機一組**拿到臥底詞，其他組拿到平民詞。
@@ -41,7 +41,7 @@
 
 ### 設定主持人白名單（必要）
 
-只有白名單內的 Google 帳號能建立房間。白名單放在 Firestore 而不是程式碼，避免信箱公開在 git 上：
+**建立房間任何人都可以**；但只有白名單內的 Google 帳號能編輯題目與操控流程（開始、揭曉、回大廳、淘汰／刪除組別），且可操控任何房間。白名單放在 Firestore 而不是程式碼，避免信箱公開在 git 上：
 
 1. Firebase Console → Firestore Database → 開始集合，集合 ID 填 `admin`。
 2. 文件 ID 填 `hosts`，新增欄位 `emails`，類型選 **array**，加入主持人的 Google 信箱（字串）。
@@ -63,7 +63,7 @@ npx serve public
 
 - **Firebase Web 設定（含 apiKey）本質上就是公開的**：任何網頁版 Firebase App 都必須把它送到瀏覽器，打開開發者工具就看得到，所以它不是密碼。本專案仍不把它放進 git，正式環境由 Firebase Hosting 自動提供。
 - 真正的保護靠這幾層（建議都做）：
-  1. **Firestore 規則**（`firestore.rules`）：只有房主能控制房間、看題目與臥底；每位玩家同一時間只屬於一組，只讀得到自己那組的答案；遊戲進行中不能換組偷看。
+  1. **Firestore 規則**（`firestore.rules`）：任何人可建立空房間，但只有白名單主持人能編輯題目、操控流程、看到臥底；每位玩家同一時間只屬於一組，只讀得到自己那組的答案；遊戲進行中不能換組偷看。
   2. **限制 API 金鑰**：Google Cloud Console → API 和服務 → 憑證 → 該 Browser key → 「應用程式限制」選 HTTP 參照網址，填 `https://你的專案.web.app/*`、`https://你的專案.firebaseapp.com/*`（本機測試再加 `http://localhost:*/*`）。
   3. **Authentication 授權網域**只保留你實際使用的網域。
   4. **主持人白名單**放在 Firestore `admin/hosts`，見上方說明。
@@ -73,7 +73,7 @@ npx serve public
 ## 資料結構
 
 ```
-rooms/{房號}                 status(lobby|playing|revealed)、round、duration、startedAt、roundId、reveal
+rooms/{房號}                 status(lobby|playing|reveal、createdByed)、round、duration、startedAt、roundId、reveal
 rooms/{房號}/questions/main  五題題目（只有主持人可讀）
 rooms/{房號}/private/state   本輪臥底組（只有主持人可讀，揭曉時才複製到 reveal）
 rooms/{房號}/groups/{id}     組名、members（匿名 uid）、eliminated

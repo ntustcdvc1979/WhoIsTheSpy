@@ -1,4 +1,4 @@
-import { auth, db, $, esc, toast, showView, normalizeCode, remainingSeconds, fmtTime, randomId, playerUrl, screenUrl, friendlyError, CN_NUM, QUESTION_COUNT } from "./common.js";
+import { auth, db, $, esc, toast, showView, normalizeCode, remainingSeconds, fmtTime, randomId, playerUrl, screenUrl, friendlyError, createRoom, CN_NUM, QUESTION_COUNT } from "./common.js";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, query, orderBy,
@@ -26,21 +26,37 @@ let unsubs = [];
 let tick = null;
 
 /* ---------------- 登入 ---------------- */
+let isHostUser = false;
+
 onAuthStateChanged(auth, async (u) => {
   if (u && !u.isAnonymous) {
     user = u;
     $("#userBox").hidden = false;
     $("#userName").textContent = u.displayName || u.email || "";
+    isHostUser = await checkHost();
+    $("#notHostBox").hidden = isHostUser;
+    $("#hostOnlyBox").hidden = !isHostUser;
     const saved = normalizeCode(localStorage.getItem(LS_ROOM));
-    if (saved && (await tryOpenRoom(saved, true))) return;
+    if (isHostUser && saved && (await tryOpenRoom(saved, true))) return;
     showView("pick");
   } else {
     user = null;
+    isHostUser = false;
     $("#userBox").hidden = true;
     cleanup();
     showView("login");
   }
 });
+
+/** 能讀到 admin/hosts 就代表在白名單內（規則只允許白名單讀） */
+async function checkHost() {
+  try {
+    await getDoc(doc(db, "admin", "hosts"));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 $("#btnGoogle").onclick = async () => {
   const provider = new GoogleAuthProvider();
@@ -55,33 +71,22 @@ $("#btnGoogle").onclick = async () => {
 $("#btnSignOut").onclick = () => signOut(auth);
 
 /* ---------------- 房間 ---------------- */
+// 建立房間：任何人都可以；主持人建立後直接進入主控台
 $("#btnCreateRoom").onclick = async () => {
   const btn = $("#btnCreateRoom");
   btn.disabled = true;
   try {
-    let newCode = null;
-    for (let i = 0; i < 15; i++) {
-      const c = String(1000 + Math.floor(Math.random() * 9000));
-      const snap = await getDoc(doc(db, "rooms", c));
-      if (!snap.exists()) { newCode = c; break; }
+    const c = await createRoom(user.uid);
+    if (isHostUser) {
+      await tryOpenRoom(c);
+      toast(`已建立房間 ${c}`);
+    } else {
+      $("#createdCode").textContent = c;
+      $("#createdBox").hidden = false;
+      $("#createdScreen").href = screenUrl(c);
     }
-    if (!newCode) throw new Error("找不到可用房號，請再試一次");
-    await setDoc(doc(db, "rooms", newCode), {
-      hostUid: user.uid,
-      hostName: user.displayName || "",
-      status: "lobby",
-      round: 0,
-      duration: 180,
-      roundId: null,
-      startedAt: null,
-      reveal: null,
-      createdAt: serverTimestamp(),
-    });
-    await setDoc(doc(db, "rooms", newCode, "questions", "main"), { list: DEFAULT_QUESTIONS });
-    await tryOpenRoom(newCode);
-    toast(`已建立房間 ${newCode}`);
   } catch (e) {
-    toast(String(e?.code).includes("permission-denied") ? "此帳號不在主持人白名單（Firestore admin/hosts）" : friendlyError(e));
+    toast(friendlyError(e));
   } finally {
     btn.disabled = false;
   }
@@ -90,7 +95,7 @@ $("#btnCreateRoom").onclick = async () => {
 $("#btnResume").onclick = async () => {
   const c = normalizeCode($("#resumeCode").value);
   if (c.length !== 4) return toast("請輸入四位數房號");
-  if (!(await tryOpenRoom(c))) toast("找不到這個房間，或不是你開的房間");
+  if (!(await tryOpenRoom(c))) toast("找不到這個房間");
 };
 
 $("#btnNewRoom").onclick = () => {
@@ -101,9 +106,10 @@ $("#btnNewRoom").onclick = () => {
 };
 
 async function tryOpenRoom(c, silent = false) {
+  if (!isHostUser) { if (!silent) toast("此帳號不在主持人白名單，無法操控房間"); return false; }
   try {
     const snap = await getDoc(doc(db, "rooms", c));
-    if (!snap.exists() || snap.data().hostUid !== user.uid) return false;
+    if (!snap.exists()) return false;
     openRoom(c);
     return true;
   } catch (e) {
@@ -132,9 +138,11 @@ async function openRoom(c) {
   showView("room");
 
   // 題目
+  questions = DEFAULT_QUESTIONS.map((q) => ({ ...q }));
   try {
     const qs = await getDoc(doc(db, "rooms", c, "questions", "main"));
     if (qs.exists() && Array.isArray(qs.data().list)) questions = normalizeQuestions(qs.data().list);
+    else $("#qSaved").textContent = "使用預設題目（尚未儲存）";
   } catch (e) { toast(friendlyError(e)); }
   renderQuestions();
 

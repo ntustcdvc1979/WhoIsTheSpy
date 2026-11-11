@@ -1,7 +1,8 @@
 rules_version = '2';
 
 // 誰是臥底 · Firestore 安全規則
-// - 主持人：Google 登入，只有建立房間的人能控制該房間
+// - 建立房間：任何登入者（含匿名）都可以
+// - 主持人：Google 登入且在 admin/hosts 白名單，才能編輯題目、開始 / 揭曉 / 管理組別
 // - 玩家 / 投影幕：匿名登入
 // - 各組答案（words）只有該組組員與主持人讀得到，別組看不到
 service cloud.firestore {
@@ -19,23 +20,35 @@ service cloud.firestore {
         && request.auth.token.email in get(/databases/$(database)/documents/admin/hosts).data.emails;
     }
 
-    // admin/* 完全禁止前端讀寫
-    match /admin/{docId} { allow read, write: if false; }
-
-    function isHost(code) {
-      return signedIn()
-        && get(/databases/$(database)/documents/rooms/$(code)).data.hostUid == request.auth.uid;
+    // admin/hosts：只有白名單主持人自己能讀（主持台用來確認身分），任何人都不能從前端寫
+    match /admin/{docId} {
+      allow get: if docId == 'hosts' && isAllowedHost();
+      allow list, write: if false;
     }
+
+    // 白名單主持人可以操控「任何」房間
+    function isHost(code) { return isAllowedHost(); }
 
     match /rooms/{code} {
       allow read: if signedIn();
-      allow create: if isAllowedHost()
+
+      // 任何人（含匿名登入的投影幕 / 玩家）都可以建立房間，但只能建立「大廳」狀態的空房間
+      allow create: if signedIn()
         && code.matches('^[0-9]{4}$')
-        && request.resource.data.hostUid == request.auth.uid;
-      allow update: if signedIn()
-        && resource.data.hostUid == request.auth.uid
-        && request.resource.data.hostUid == resource.data.hostUid;
-      allow delete: if signedIn() && resource.data.hostUid == request.auth.uid;
+        && request.resource.data.keys().hasOnly(['createdBy', 'status', 'round', 'duration', 'roundId', 'startedAt', 'reveal', 'createdAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.round == 0
+        && request.resource.data.duration == 180
+        && request.resource.data.roundId == null
+        && request.resource.data.startedAt == null
+        && request.resource.data.reveal == null
+        && request.resource.data.createdAt == request.time;
+
+      // 開始 / 揭曉 / 回大廳 等流程：只有白名單主持人
+      allow update: if isAllowedHost()
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isAllowedHost();
 
       // 題目與本輪臥底：只有主持人
       match /questions/{docId} { allow read, write: if isHost(code); }

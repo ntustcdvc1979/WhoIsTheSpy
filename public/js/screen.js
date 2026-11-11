@@ -1,4 +1,4 @@
-import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, remainingSeconds, fmtTime, playerUrl, friendlyError, CN_NUM } from "./common.js";
+import { db, auth, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, remainingSeconds, fmtTime, playerUrl, friendlyError, createRoom, CN_NUM } from "./common.js";
 import { doc, getDoc, collection, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CIRC = 2 * Math.PI * 88;
@@ -24,6 +24,17 @@ $("#btnEnter").onclick = async () => {
   if (c.length !== 4 || !(await enterRoom(c))) toast("找不到這個房間");
 };
 $("#inpCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnEnter").click(); });
+
+$("#btnCreateRoom").onclick = async () => {
+  const btn = $("#btnCreateRoom");
+  btn.disabled = true;
+  try {
+    const c = await createRoom(auth.currentUser.uid);
+    await enterRoom(c);
+    toast(`已建立房間 ${c}，請主持人在主持台輸入此房號`);
+  } catch (e) { toast(friendlyError(e)); }
+  finally { btn.disabled = false; }
+};
 
 $("#btnFs").onclick = () => {
   if (document.fullscreenElement) document.exitFullscreen();

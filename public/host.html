@@ -42,14 +42,26 @@
     <section data-view="pick" hidden>
       <div class="card" style="max-width:520px;margin:40px auto">
         <div class="card-title">開設房間</div>
-        <p class="muted">建立一個新房間，系統會產生四位數房號給玩家與投影幕使用。</p>
+        <p class="muted">任何人都可以建立房間（投影幕頁也能直接建立），系統會產生四位數房號。</p>
         <button class="btn red block" id="btnCreateRoom">建立新房間</button>
-        <hr style="border:0;border-top:1px dashed var(--paper-3);margin:20px 0">
-        <label for="resumeCode">或回到你之前開的房間</label>
-        <div class="row" style="margin-top:6px">
-          <input type="text" id="resumeCode" class="grow" inputmode="numeric" maxlength="4" placeholder="四位數房號" style="width:auto">
-          <button class="btn" id="btnResume">開啟</button>
+        <div id="createdBox" hidden style="margin-top:14px;text-align:center">
+          <div class="muted">已建立房間</div>
+          <div style="font-size:2.4rem;letter-spacing:.3em;color:var(--cinnabar)" id="createdCode"></div>
+          <a id="createdScreen" target="_blank">開啟投影幕</a>
         </div>
+
+        <div id="hostOnlyBox" hidden>
+          <hr style="border:0;border-top:1px dashed var(--paper-3);margin:20px 0">
+          <label for="resumeCode">主持人：輸入房號進入主控台（可操控任何房間）</label>
+          <div class="row" style="margin-top:6px">
+            <input type="text" id="resumeCode" class="grow" inputmode="numeric" maxlength="4" placeholder="四位數房號" style="width:auto">
+            <button class="btn" id="btnResume">開啟</button>
+          </div>
+        </div>
+
+        <p id="notHostBox" hidden class="muted" style="margin-top:18px;padding:10px;background:var(--paper-2);border-radius:4px">
+          此帳號不在主持人白名單，可以建立房間，但無法編輯題目或操控遊戲流程。
+        </p>
       </div>
     </section>
 
