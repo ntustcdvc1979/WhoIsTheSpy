@@ -25,19 +25,40 @@
 1. 到 [Firebase Console](https://console.firebase.google.com/) 建立專案。
 2. **Authentication → 登入方式**：啟用 **Google** 與 **匿名**。
 3. **Firestore Database**：建立資料庫（正式版模式即可，規則下面會部署）。
-4. **專案設定 → 一般 → 你的應用程式**：新增「網頁應用程式」（部署到 Firebase Hosting 時網頁會自動讀取 `/__/firebase/init.json`，**不需要把設定寫進程式碼**）。
-5. 部署（需要 Node.js）：
+4. **專案設定 → 一般 → 你的應用程式**：新增「網頁應用程式」，記下設定值（apiKey、authDomain、projectId…）。
+5. **Authentication → 設定 → 授權網域**：新增 `ntustcdvc1979.github.io`（否則 Google 登入會失敗）。
+6. 部署 Firestore 規則（需要 Node.js；也可以把 `firestore.rules` 內容直接貼到 Console 的「規則」分頁發布）：
 
    ```bash
-   npm install -g firebase-tools
+   npm install -g firebase-tools@latest
    firebase login
-   firebase use --add        # 選擇你的專案
-   firebase deploy           # 部署網頁 + Firestore 規則
+   firebase use --add
+   firebase deploy --only firestore:rules
    ```
 
-   部署完會得到 `https://你的專案.web.app`。
+## 部署前端到 GitHub Pages
 
-6. 若要用自訂網域，記得在 **Authentication → 設定 → 授權網域** 加入該網域（`*.web.app` 預設已授權）。
+前端由 GitHub Actions（`.github/workflows/pages.yml`）自動部署，**Firebase 設定不放在 git**，而是部署時從 Repository secrets 產生 `firebase-config.js`。
+
+1. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**，新增：
+
+   | Secret 名稱 | 對應 Firebase 設定 |
+   | --- | --- |
+   | `FIREBASE_API_KEY` | apiKey |
+   | `FIREBASE_AUTH_DOMAIN` | authDomain |
+   | `FIREBASE_PROJECT_ID` | projectId |
+   | `FIREBASE_STORAGE_BUCKET` | storageBucket |
+   | `FIREBASE_MESSAGING_SENDER_ID` | messagingSenderId |
+   | `FIREBASE_APP_ID` | appId |
+
+2. **Settings → Pages → Build and deployment → Source** 選 **GitHub Actions**。
+3. 推送到 `main`（或到 **Actions → Deploy to GitHub Pages → Run workflow** 手動執行）。
+4. 網址：`https://ntustcdvc1979.github.io/WhoIsTheSpy/`
+   - 主持台：`…/WhoIsTheSpy/host.html`
+   - 投影幕：`…/WhoIsTheSpy/screen.html`
+   - 玩家：掃投影幕 QR Code
+
+> 也仍可改用 Firebase Hosting：`firebase deploy`（會自動提供設定，不需要 secrets）。
 
 ### 設定主持人白名單（必要）
 
@@ -61,10 +82,10 @@ npx serve public
 
 ## 資安說明
 
-- **Firebase Web 設定（含 apiKey）本質上就是公開的**：任何網頁版 Firebase App 都必須把它送到瀏覽器，打開開發者工具就看得到，所以它不是密碼。本專案仍不把它放進 git，正式環境由 Firebase Hosting 自動提供。
+- **Firebase Web 設定（含 apiKey）本質上就是公開的**：任何網頁版 Firebase App 都必須把它送到瀏覽器，打開開發者工具就看得到，所以它不是密碼。本專案仍不把它放進 git，部署時由 GitHub Actions secrets 產生。
 - 真正的保護靠這幾層（建議都做）：
   1. **Firestore 規則**（`firestore.rules`）：任何人可建立空房間，但只有白名單主持人能編輯題目、操控流程、看到臥底；每位玩家同一時間只屬於一組，只讀得到自己那組的答案；遊戲進行中不能換組偷看。
-  2. **限制 API 金鑰**：Google Cloud Console → API 和服務 → 憑證 → 該 Browser key → 「應用程式限制」選 HTTP 參照網址，填 `https://你的專案.web.app/*`、`https://你的專案.firebaseapp.com/*`（本機測試再加 `http://localhost:*/*`）。
+  2. **限制 API 金鑰**：Google Cloud Console → API 和服務 → 憑證 → 該 Browser key → 「應用程式限制」選 HTTP 參照網址，填 `https://ntustcdvc1979.github.io/*`、`https://你的專案.firebaseapp.com/*`（Google 登入彈窗會用到）（本機測試再加 `http://localhost:*/*`）。
   3. **Authentication 授權網域**只保留你實際使用的網域。
   4. **主持人白名單**放在 Firestore `admin/hosts`，見上方說明。
 - 無法完全防止的：玩家開無痕視窗用另一個匿名身分加入別組，或直接偷看別組手機，這屬於遊戲規則的範圍。

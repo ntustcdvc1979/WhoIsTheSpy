@@ -5,11 +5,15 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebas
 // 設定來源（金鑰不寫死在程式碼、也不進 git）：
 // 1. 部署在 Firebase Hosting：自動讀取 /__/firebase/init.json
 // 2. 本機開發：讀取 public/js/firebase-config.js（已被 .gitignore 排除，可由 firebase-config.example.js 複製）
+// 3. GitHub Pages：由 GitHub Actions 部署時用 Repository secrets 產生 firebase-config.js
 async function loadFirebaseConfig() {
-  try {
-    const res = await fetch("/__/firebase/init.json", { cache: "no-store" });
-    if (res.ok && (res.headers.get("content-type") || "").includes("json")) return await res.json();
-  } catch { /* 非 Firebase Hosting 環境 */ }
+  const onFirebaseHosting = /\.(web\.app|firebaseapp\.com)$/.test(location.hostname) || location.hostname === "localhost";
+  if (onFirebaseHosting) {
+    try {
+      const res = await fetch("/__/firebase/init.json", { cache: "no-store" });
+      if (res.ok && (res.headers.get("content-type") || "").includes("json")) return await res.json();
+    } catch { /* 不是 Firebase Hosting / emulator */ }
+  }
   try {
     const mod = await import("./firebase-config.js");
     return mod.firebaseConfig;
