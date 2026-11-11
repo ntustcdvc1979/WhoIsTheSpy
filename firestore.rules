@@ -1,0 +1,114 @@
+rules_version = '2';
+
+// 誰是臥底 · Firestore 安全規則
+// - 主持人：Google 登入，只有建立房間的人能控制該房間
+// - 玩家 / 投影幕：匿名登入
+// - 各組答案（words）只有該組組員與主持人讀得到，別組看不到
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    // 主持人白名單存在 Firestore 的 admin/hosts 文件（欄位 emails: [...]），
+    // 只能在 Firebase Console 手動編輯，前端讀不到，也不會出現在 git 裡。
+    function isAllowedHost() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admin/hosts)
+        && request.auth.token.email in get(/databases/$(database)/documents/admin/hosts).data.emails;
+    }
+
+    // admin/* 完全禁止前端讀寫
+    match /admin/{docId} { allow read, write: if false; }
+
+    function isHost(code) {
+      return signedIn()
+        && get(/databases/$(database)/documents/rooms/$(code)).data.hostUid == request.auth.uid;
+    }
+
+    match /rooms/{code} {
+      allow read: if signedIn();
+      allow create: if isAllowedHost()
+        && code.matches('^[0-9]{4}$')
+        && request.resource.data.hostUid == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.hostUid == request.auth.uid
+        && request.resource.data.hostUid == resource.data.hostUid;
+      allow delete: if signedIn() && resource.data.hostUid == request.auth.uid;
+
+      // 題目與本輪臥底：只有主持人
+      match /questions/{docId} { allow read, write: if isHost(code); }
+      match /private/{docId}   { allow read, write: if isHost(code); }
+
+      // 每位玩家「目前所屬組別」的唯一指標，用來保證一個人同時只屬於一組。
+      // 讀答案以這裡為準，所以就算有人把自己硬塞進好幾組的名單，也只讀得到一組的答案。
+      // 第一次加入隨時可以；之後換組只能在大廳（遊戲進行中不能換組偷看別組答案）。
+      function memberPath(uid) { return /databases/$(database)/documents/rooms/$(code)/members/$(uid); }
+      function inLobby() { return get(/databases/$(database)/documents/rooms/$(code)).data.status == 'lobby'; }
+      function myGidAfter() {
+        return existsAfter(memberPath(request.auth.uid))
+          ? getAfter(memberPath(request.auth.uid)).data.gid : null;
+      }
+
+      match /members/{uid} {
+        allow read: if signedIn() && (request.auth.uid == uid || isHost(code));
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['gid'])
+          && request.resource.data.gid is string
+          && uid in getAfter(/databases/$(database)/documents/rooms/$(code)/groups/$(request.resource.data.gid)).data.members;
+        allow update: if signedIn() && request.auth.uid == uid && inLobby()
+          && request.resource.data.keys().hasOnly(['gid'])
+          && request.resource.data.gid is string
+          && uid in getAfter(/databases/$(database)/documents/rooms/$(code)/groups/$(request.resource.data.gid)).data.members;
+        allow delete: if isHost(code) || (signedIn() && request.auth.uid == uid && inLobby());
+      }
+
+      // 組別：玩家可建立、加入 / 離開（只能動自己的 uid，且要和 members 指標一致）；主持人可改全部
+      match /groups/{gid} {
+        allow read: if signedIn();
+
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly(['name', 'members', 'eliminated', 'createdBy', 'createdAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 12
+          && request.resource.data.members == [request.auth.uid]
+          && request.resource.data.eliminated == false
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && myGidAfter() == gid;
+
+        allow update: if isHost(code) || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.size() <= 50
+          && (
+            // 加入：新增的只有自己，且指標指向這一組
+            (request.resource.data.members.toSet().difference(resource.data.members.toSet()).hasOnly([request.auth.uid])
+              && request.resource.data.members.toSet().difference(resource.data.members.toSet()).size() == 1
+              && resource.data.members.toSet().difference(request.resource.data.members.toSet()).size() == 0
+              && myGidAfter() == gid)
+            ||
+            // 離開：移除的只有自己，且指標已不指向這一組
+            (resource.data.members.toSet().difference(request.resource.data.members.toSet()).hasOnly([request.auth.uid])
+              && resource.data.members.toSet().difference(request.resource.data.members.toSet()).size() == 1
+              && request.resource.data.members.toSet().difference(resource.data.members.toSet()).size() == 0
+              && myGidAfter() != gid)
+          )
+        );
+
+        allow delete: if isHost(code);
+      }
+
+      // 各組答案：只有主持人寫；只有「目前屬於該組」的玩家與主持人讀
+      match /words/{gid} {
+        allow read: if isHost(code) || (
+          signedIn()
+          && get(memberPath(request.auth.uid)).data.gid == gid
+        );
+        allow write: if isHost(code);
+      }
+    }
+  }
+}

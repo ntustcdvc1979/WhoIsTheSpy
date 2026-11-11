@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4ecd8">
+  <title>玩家 · 誰是臥底</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-player">
+  <div class="meander"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">臥底</div>
+      <div>
+        <h1 class="brand-title">誰是臥底</h1>
+        <div class="brand-sub" id="roomLabel">周杰倫 ╳ 方文山</div>
+      </div>
+    </div>
+    <button class="btn ghost small" id="btnSwitchRoom" hidden>換房間</button>
+  </header>
+
+  <main class="wrap">
+    <section data-view="loading"><p class="muted" style="text-align:center">研墨中……</p></section>
+
+    <!-- 輸入房號 -->
+    <section data-view="code" hidden>
+      <div class="card" style="text-align:center">
+        <div class="card-title" style="justify-content:center">輸入房號</div>
+        <p class="muted">房號顯示在投影幕上，也可以直接掃 QR Code</p>
+        <input type="text" id="inpCode" class="big-code-input" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+        <button class="btn red block" id="btnEnter" style="margin-top:14px">進入</button>
+      </div>
+    </section>
+
+    <!-- 建立 / 加入組別 -->
+    <section data-view="group" hidden>
+      <div class="card">
+        <div class="card-title">建立新組別</div>
+        <div class="row">
+          <input type="text" id="inpGroup" class="grow" maxlength="12" placeholder="例：七里香隊" style="width:auto">
+          <button class="btn red" id="btnCreateGroup">建立</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">或加入已有的組別</div>
+        <ul class="group-list join-list" id="joinList"></ul>
+        <p class="muted" id="joinEmpty">還沒有人建立組別，當第一組吧！</p>
+      </div>
+    </section>
+
+    <!-- 已在組內 -->
+    <section data-view="play" hidden>
+      <div class="card" style="text-align:center;padding:14px">
+        <div class="muted">你的組別</div>
+        <div style="font-size:1.7rem;font-weight:700;letter-spacing:.15em" id="myGroupName"></div>
+        <div class="muted" id="myGroupMeta"></div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="status-pill" id="statusPill">等待主持人開始……</div>
+
+        <!-- 答案 -->
+        <div id="wordBox" hidden>
+          <div class="scroll covered" id="scroll">
+            <div>
+              <div class="word" id="wordText"></div>
+              <div class="hint" id="wordHint">點一下翻開答案</div>
+            </div>
+            <div class="cover-label" id="coverLabel">點一下翻開</div>
+          </div>
+          <p class="muted" style="text-align:center">不要讓別組看到喔！再點一下可以蓋起來。</p>
+        </div>
+
+        <!-- 揭曉 -->
+        <div class="card result-box" id="resultBox" hidden>
+          <div class="muted" id="resultLabel">本輪結果</div>
+          <div class="verdict" id="verdict"></div>
+          <div id="resultWords"></div>
+        </div>
+
+        <div class="card result-box" id="outBox" hidden>
+          <div class="seal big" style="margin:0 auto 10px">出局</div>
+          <div class="muted">本組已被淘汰，可以留下來看熱鬧</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:24px">
+        <button class="btn ghost small" id="btnLeave">離開這一組</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/player.js"></script>
+</body>
+</html>

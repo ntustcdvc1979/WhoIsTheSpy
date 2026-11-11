@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>主持台 · 誰是臥底</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-host">
+  <div class="meander"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">主持</div>
+      <div>
+        <h1 class="brand-title">誰是臥底・主持台</h1>
+        <div class="brand-sub">周杰倫 ╳ 方文山</div>
+      </div>
+    </div>
+    <div class="row" id="userBox" hidden>
+      <span class="muted" id="userName"></span>
+      <button class="btn ghost small" id="btnSignOut">登出</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- 載入中 -->
+    <section data-view="loading"><p class="muted">研墨中……</p></section>
+
+    <!-- 登入 -->
+    <section data-view="login" hidden>
+      <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
+        <div class="seal big" style="margin-bottom:14px">主</div>
+        <h2>主持人請登入</h2>
+        <p class="muted">需使用 Google 帳號登入才能設定題目與開始遊戲</p>
+        <button class="btn red block" id="btnGoogle">以 Google 帳號登入</button>
+      </div>
+    </section>
+
+    <!-- 選房間 -->
+    <section data-view="pick" hidden>
+      <div class="card" style="max-width:520px;margin:40px auto">
+        <div class="card-title">開設房間</div>
+        <p class="muted">建立一個新房間，系統會產生四位數房號給玩家與投影幕使用。</p>
+        <button class="btn red block" id="btnCreateRoom">建立新房間</button>
+        <hr style="border:0;border-top:1px dashed var(--paper-3);margin:20px 0">
+        <label for="resumeCode">或回到你之前開的房間</label>
+        <div class="row" style="margin-top:6px">
+          <input type="text" id="resumeCode" class="grow" inputmode="numeric" maxlength="4" placeholder="四位數房號" style="width:auto">
+          <button class="btn" id="btnResume">開啟</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 主控台 -->
+    <section data-view="room" hidden>
+      <div class="status-strip">
+        <div>
+          <div class="muted" style="color:#9fb3d1">房號</div>
+          <div class="code" id="roomCode">----</div>
+        </div>
+        <div style="text-align:center">
+          <div class="muted" style="color:#9fb3d1" id="statusText">大廳等待中</div>
+          <div class="timer" id="hostTimer">–:––</div>
+        </div>
+        <div class="row">
+          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="openScreen" target="_blank">開投影幕</a>
+          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="openPlayer" target="_blank">玩家頁</a>
+          <button class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="btnNewRoom">換房間</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <!-- 遊戲控制 -->
+          <div class="card">
+            <div class="card-title">遊戲控制</div>
+            <div class="row" style="margin-bottom:10px">
+              <div class="grow">
+                <label for="selQuestion">本輪題目</label>
+                <select id="selQuestion"></select>
+              </div>
+              <div style="width:130px">
+                <label for="inpDuration">倒數（秒）</label>
+                <input type="number" id="inpDuration" min="10" max="3600" step="10" value="180">
+              </div>
+            </div>
+            <div class="row" style="margin-bottom:14px">
+              <button class="btn ghost small" data-dur="60">1 分</button>
+              <button class="btn ghost small" data-dur="120">2 分</button>
+              <button class="btn ghost small" data-dur="180">3 分</button>
+              <button class="btn ghost small" data-dur="300">5 分</button>
+            </div>
+            <div class="row">
+              <button class="btn red grow" id="btnStart">開始！發送答案</button>
+              <button class="btn blue grow" id="btnReveal">揭曉臥底</button>
+              <button class="btn ghost grow" id="btnLobby">回到大廳</button>
+            </div>
+            <p class="muted" id="ctrlHint" style="margin:10px 0 0"></p>
+          </div>
+
+          <!-- 組別 -->
+          <div class="card">
+            <div class="card-title">組別 <span class="muted" id="groupCount"></span></div>
+            <ul class="group-list" id="groupList"></ul>
+            <p class="muted" id="groupEmpty">尚無組別，請玩家用手機掃投影幕上的 QR Code 建立組別。</p>
+            <div class="row" style="justify-content:flex-end;margin-top:10px">
+              <button class="btn ghost small" id="btnClearGroups">清空所有組別</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 題目 -->
+        <div>
+          <div class="card">
+            <div class="card-title">題目設定（五題）</div>
+            <div class="q-row q-head"><span></span><span>平民詞（多數組）</span><span>臥底詞（只有一組）</span></div>
+            <div id="questionRows"></div>
+            <div class="row" style="justify-content:space-between;margin-top:12px">
+              <span class="muted" id="qSaved"></span>
+              <button class="btn red" id="btnSaveQ">儲存題目</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">連結</div>
+            <p class="muted" style="margin:0 0 4px">玩家手機</p>
+            <div class="linkbox" id="linkPlayer"></div>
+            <p class="muted" style="margin:10px 0 4px">投影幕</p>
+            <div class="linkbox" id="linkScreen"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/host.js"></script>
+</body>
+</html>

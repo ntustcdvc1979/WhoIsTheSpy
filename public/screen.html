@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>投影幕 · 誰是臥底</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="page-screen">
+  <div class="screen">
+    <div class="meander"></div>
+    <header class="screen-head">
+      <div class="brand">
+        <div class="seal">臥底</div>
+        <div>
+          <h1 class="brand-title">誰是臥底</h1>
+          <div class="brand-sub" id="roomLabel"></div>
+        </div>
+      </div>
+      <div class="screen-credit">主持<br><b>周杰倫 ╳ 方文山</b></div>
+    </header>
+
+    <main class="screen-main">
+      <!-- 祥雲裝飾 -->
+      <svg class="cloud-deco tl" viewBox="0 0 200 100" aria-hidden="true"><g fill="none" stroke="#f4ecd8" stroke-width="4" stroke-linecap="round"><path d="M20 80c-14 0-14-22 2-22 0-20 30-24 36-6 6-22 44-20 44 4 16-6 30 6 22 20H20z"/><path d="M52 66c0-8 12-8 12 0s-10 8-10 2"/><path d="M90 64c0-10 16-10 16 0s-12 10-12 2"/><path d="M130 80c40 0 60-10 60-30"/></g></svg>
+      <svg class="cloud-deco br" viewBox="0 0 200 100" aria-hidden="true"><g fill="none" stroke="#f4ecd8" stroke-width="4" stroke-linecap="round"><path d="M20 80c-14 0-14-22 2-22 0-20 30-24 36-6 6-22 44-20 44 4 16-6 30 6 22 20H20z"/><path d="M52 66c0-8 12-8 12 0s-10 8-10 2"/><path d="M90 64c0-10 16-10 16 0s-12 10-12 2"/><path d="M130 80c40 0 60-10 60-30"/></g></svg>
+
+      <!-- 輸入房號 -->
+      <section data-view="code" hidden style="text-align:center">
+        <h2 style="font-size:3rem;letter-spacing:.3em">投影幕</h2>
+        <p style="color:var(--s-dim)">請輸入主持台上的房號</p>
+        <div class="row" style="justify-content:center">
+          <input type="text" id="inpCode" class="big-code-input" inputmode="numeric" maxlength="4" placeholder="0000" style="width:260px">
+          <button class="btn red" id="btnEnter">開啟</button>
+        </div>
+      </section>
+
+      <section data-view="loading"><p style="color:var(--s-dim)">研墨中……</p></section>
+
+      <!-- 大廳 -->
+      <section data-view="lobby" hidden class="lobby">
+        <div class="qr-card">
+          <div id="qr"></div>
+          <div class="muted" style="margin-top:8px">手機掃碼加入</div>
+          <div class="qr-code" id="qrCode"></div>
+        </div>
+        <div>
+          <h2>誰是臥底</h2>
+          <div class="sub">掃碼建立組別・主持人開題後各組將收到答案</div>
+          <div class="sub" style="margin-top:2vh" id="lobbyCount"></div>
+          <div class="screen-groups" id="lobbyGroups"></div>
+        </div>
+      </section>
+
+      <!-- 倒數 -->
+      <section data-view="playing" hidden class="countdown-wrap">
+        <div class="round-label" id="roundLabel"></div>
+        <div class="ring" id="ring">
+          <svg viewBox="0 0 200 200">
+            <defs>
+              <filter id="brush" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
+                <feDisplacementMap in="SourceGraphic" scale="3"/>
+              </filter>
+            </defs>
+            <circle class="track" cx="100" cy="100" r="88" fill="none" stroke-width="10"/>
+            <circle class="bar" id="ringBar" cx="100" cy="100" r="88" fill="none" stroke-width="10" stroke-linecap="round" filter="url(#brush)"/>
+          </svg>
+          <div class="num" id="countNum"></div>
+        </div>
+        <div class="timeup" id="timeUp" hidden>時間到</div>
+      </section>
+
+      <!-- 揭曉 -->
+      <section data-view="revealed" hidden class="reveal">
+        <div class="label" id="revealLabel">臥底是</div>
+        <div><span class="spy-name" id="spyName"></span></div>
+        <div class="words">
+          <div class="w"><div class="k">平民詞</div><div class="v" id="wNormal"></div></div>
+          <div class="w spyw"><div class="k">臥底詞</div><div class="v" id="wSpy"></div></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="screen-groups" id="footGroups"></div>
+    <div class="meander"></div>
+  </div>
+  <button class="btn small fs-btn" id="btnFs">全螢幕</button>
+
+  <script type="module" src="js/screen.js"></script>
+</body>
+</html>

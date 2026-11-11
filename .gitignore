@@ -147,3 +147,13 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# ---- 誰是臥底：Firebase 設定與本機檔案不進 git ----
+public/js/firebase-config.js
+.firebaserc
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+.claude/
+*-firebase-adminsdk-*.json
+serviceAccount*.json
