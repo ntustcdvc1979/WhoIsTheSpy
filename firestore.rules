@@ -30,8 +30,8 @@ service cloud.firestore {
     match /bank/{docId} {
       allow read: if isAllowedHost();
       allow write: if isAllowedHost() && docId == 'questions'
-        && request.resource.data.list is list
-        && request.resource.data.list.size() <= 20;
+        && request.resource.data.rounds is list
+        && request.resource.data.rounds.size() <= 10;
     }
 
     // 玩家：名字 + 目前所在的桌（table）。所有登入者可讀（顯示名單），只有本人可寫。

@@ -5,7 +5,7 @@
 | 頁面 | 給誰用 | 功能 |
 | --- | --- | --- |
 | `host.html` | 主持人（筆電／平板） | 主控台：Google 登入（白名單）、桌列表與玩家管理、**所有桌一起開始**／全部揭曉／全部回到待命 |
-| `questions.html` | 主持人 | 題目設計：編輯五題的平民詞／臥底詞（題庫共用於所有桌） |
+| `questions.html` | 主持人 | 題目設計：**依輪設定題目**（每一輪的題數、輪數都可增減），題庫共用於所有桌 |
 | `player.html` | 玩家（手機） | 輸入自己的大名、加入或建立「桌」（不需登入），加入後即進入待命；開始後看到自己的詞 |
 | `screen.html` | 投影幕（全場一台） | 待命時顯示「客」的 QR Code（連到玩家頁），開始後大字倒數，揭曉時提示看手機；不顯示桌的資訊與題目 |
 
@@ -13,10 +13,10 @@
 
 1. 投影幕開 `screen.html`，按右下角「全螢幕」。畫面上是給玩家掃的 QR Code。
 2. 玩家掃碼 → **輸入自己的大名**（之後會記住，可按右上角「改名」）→ **找到自己那一桌按「加入」，沒有就建立一桌**（不需登入，任何人都能建立）→ **加入後直接進入待命畫面**（「桌」就是組別，不需要再分組）。主持人也可以在主控台先新增各桌。
-3. 主持人開 `host.html` → Google 登入（需在白名單）→ 到「題目設計」編輯並儲存五題。
+3. 主持人開 `host.html` → Google 登入（需在白名單）→ 到「題目設計」依輪設定題目並儲存（例如第一輪 3 題、第二輪 4 題）。
 4. **主持人按下開始前，所有玩家畫面都是待命狀態。**
 5. 主控台設定倒數秒數 → 按 **所有桌一起開始**：
-   - **每一桌各自從題庫隨機抽一題**，同一桌在不同輪次**不會抽到重複的題目**（五題、玩兩輪綽綽有餘）。
+   - 第 N 輪時，**每一桌只會從「第 N 輪」的題目中隨機抽一題**；同一桌**不會抽到重複的題目**。題庫沒設定到的輪次無法開始。
    - 每個有 3 人以上的桌同時收到答案；每一桌**隨機一人**拿到臥底詞，其他人拿到平民詞。人數不足的桌維持待命。
    - 每個人只讀得到自己的詞（由 Firestore 規則保護），而且一個人同時只能在一桌。
    - 投影幕開始倒數，最後 10 秒變紅，結束顯示「時間到」。
@@ -98,9 +98,9 @@ npx serve public
 
 ```
 players/{uid}                玩家大名與目前所在的桌 table（所有人可讀，只有本人可寫）
-bank/questions               五題題庫（只有白名單主持人可讀寫）
+bank/questions               題庫 rounds: [{ questions: [{normal, spy}] }]（只有白名單主持人可讀寫）
 game/state                   全場狀態：status、round、roundCount、duration、startedAt（投影幕倒數用）
-rooms/{桌id}                 name、status(lobby|playing|revealed)、round、duration、startedAt、roundId、reveal、createdBy、usedQ（此桌已出過的題目索引）
+rooms/{桌id}                 name、status(lobby|playing|revealed)、round、duration、startedAt、roundId、reveal、createdBy、usedQ（此桌已出過的題目，以詞為識別）
 rooms/{桌id}/private/state   本輪臥底是誰（只有主持人可讀，揭曉時才複製到 reveal）
 rooms/{桌id}/members/{uid}   桌上的玩家（eliminated：是否出局）
 rooms/{桌id}/words/{uid}     該玩家本輪的詞（只有本人與主持人可讀）

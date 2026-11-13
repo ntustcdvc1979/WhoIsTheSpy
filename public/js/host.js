@@ -1,4 +1,4 @@
-import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, createNameBook, CN_NUM, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
+import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, createNameBook, CN_NUM, DEFAULT_ROUNDS, normalizeRounds, questionProblem, questionKey, roundLabel } from "./common.js";
 import { initHostAuth } from "./host-auth.js";
 import {
   doc, getDoc, updateDoc, collection, onSnapshot, query, orderBy,
@@ -17,7 +17,7 @@ const groupUnsubs = new Map();    // roomId -> unsubscribe
 let selectedRoom = null;
 let selectedSecret = null;
 let secretUnsub = null;
-let questions = normalizeQuestions(DEFAULT_QUESTIONS);
+let bank = normalizeRounds({ rounds: DEFAULT_ROUNDS }); // [{ questions: [...] }]
 let bankSaved = false;
 let unsubs = [];
 let tick = null;
@@ -58,7 +58,8 @@ function start() {
 
   unsubs.push(onSnapshot(doc(db, "bank", "questions"), (s) => {
     bankSaved = s.exists();
-    questions = normalizeQuestions(bankSaved ? s.data().list : DEFAULT_QUESTIONS);
+    bank = normalizeRounds(bankSaved ? s.data() : { rounds: DEFAULT_ROUNDS });
+    renderControls();
     renderQuestions();
   }, (e) => toast(friendlyError(e))));
 
@@ -96,25 +97,31 @@ function renderAll() {
   renderQuestions();
 }
 
-/* ---------------- 題目預覽 ---------------- */
+/* ---------------- 題目預覽（依輪） ---------------- */
+const nextRoundIdx = () => game.roundCount || 0;
+const validIn = (ri) => (bank[ri]?.questions || []).filter((q) => !questionProblem(q));
+
 function renderQuestions() {
-  $("#qPreview").innerHTML = questions.map((q, i) => {
-    const bad = questionProblem(q);
-    return `
-    <li>
-      <span class="q-no">第${CN_NUM[i]}題</span>
-      <span>${esc(q.normal || "（未填）")}</span>
-      <span class="spyw">${esc(q.spy || "（未填）")}${bad ? ' <span class="tag grey">不會被抽到</span>' : ""}</span>
-    </li>`;
-  }).join("");
+  const hi = game.status === "lobby" ? nextRoundIdx() : game.round;
+  $("#qPreview").innerHTML = bank.map((rd, ri) => `
+    <li class="q-preview-round ${ri === hi ? "next" : ""}" style="display:block;border:0">${roundLabel(ri)}（${validIn(ri).length} 題）${ri === hi ? (game.status === "lobby" ? "・下一輪" : "・本輪") : ""}</li>
+    ${rd.questions.map((q, qi) => {
+      const bad = questionProblem(q);
+      return `
+      <li class="${ri === hi ? "current" : ""}">
+        <span class="q-no">${qi + 1}.</span>
+        <span>${esc(q.normal || "（未填）")}</span>
+        <span class="spyw">${esc(q.spy || "（未填）")}${bad ? ' <span class="tag grey">不會被抽到</span>' : ""}</span>
+      </li>`;
+    }).join("")}`).join("") || '<li style="display:block">題庫是空的</li>';
   $("#qNote").textContent = (bankSaved ? "左：平民詞　右：臥底詞。" : "目前使用範例題目，可到「題目設計」修改並儲存。")
-    + "每輪開始時，各桌從尚未出過的題目中隨機抽一題。";
+    + "第 N 輪開始時，各桌只從第 N 輪的題目中抽一題，同一桌不會抽到重複的題目。";
 }
 
-/** 該桌這一輪可抽的題目索引（已完成且沒出過的） */
-function candidatesFor(room) {
+/** 該桌在第 ri 輪可抽的題目（已完成、且這一桌沒出過的） */
+function candidatesFor(room, ri) {
   const used = new Set(room.usedQ || []);
-  return questions.map((q, i) => i).filter((i) => !questionProblem(questions[i]) && !used.has(i));
+  return validIn(ri).filter((q) => !used.has(questionKey(q)));
 }
 const pickRandom = (arr) => arr[crypto.getRandomValues(new Uint32Array(1))[0] % arr.length];
 
@@ -129,7 +136,8 @@ function renderControls() {
   $("#btnStartAll").disabled = st === "playing" || ready === 0;
   $("#btnRevealAll").disabled = st !== "playing";
   $("#btnLobbyAll").disabled = st === "lobby";
-  $("#nextRound").textContent = `第${CN_NUM[game.roundCount || 0] || (game.roundCount || 0) + 1}輪`;
+  const ni = nextRoundIdx();
+  $("#nextRound").textContent = `${roundLabel(ni)}${bank[ni] ? `（題庫 ${validIn(ni).length} 題）` : "（題庫沒有這一輪）"}`;
   const rn = `第${CN_NUM[game.round] || ""}輪`;
   $("#statusText").textContent = { lobby: "待命中", playing: `${rn}進行中`, revealed: `${rn}已揭曉` }[st] || st;
   const notReady = rooms.length - ready;
@@ -161,27 +169,27 @@ async function commitOps(ops) {
 }
 
 $("#btnStartAll").onclick = async () => {
-  const valid = questions.map((q, i) => i).filter((i) => !questionProblem(questions[i]));
-  if (!valid.length) return toast("沒有完整的題目，請先到「題目設計」設定");
+  const roundIdx = nextRoundIdx();
+  if (!bank[roundIdx]) return toast(`題庫只設定到${roundLabel(bank.length - 1)}，請到「題目設計」新增${roundLabel(roundIdx)}，或按「重置輪次」`);
+  const valid = validIn(roundIdx);
+  if (!valid.length) return toast(`${roundLabel(roundIdx)}沒有完整的題目，請先到「題目設計」設定`);
   const duration = Math.round(Number($("#inpDuration").value));
   if (!(duration >= 10 && duration <= 3600)) return toast("倒數秒數請設定在 10 ~ 3600");
 
   const ready = rooms.filter((r) => activeGroups(r.id).length >= MIN_PLAYERS);
   const skipped = rooms.filter((r) => activeGroups(r.id).length < MIN_PLAYERS);
   if (!ready.length) return toast(`沒有任何一桌有 ${MIN_PLAYERS} 人以上`);
-  const exhausted = ready.filter((r) => !candidatesFor(r).length);
-  const roundIdx = game.roundCount || 0;
-  const msg = `第${CN_NUM[roundIdx] || roundIdx + 1}輪，${ready.length} 桌一起開始？`
+  const exhausted = ready.filter((r) => !candidatesFor(r, roundIdx).length);
+  const msg = `${roundLabel(roundIdx)}（題庫 ${valid.length} 題），${ready.length} 桌一起開始？`
     + (skipped.length ? `\n\n人數不足、維持待命：${skipped.map((r) => r.name).join("、")}` : "")
-    + (exhausted.length ? `\n\n注意：${exhausted.map((r) => r.name).join("、")} 已出完所有題目，這輪會重複出題。` : "");
+    + (exhausted.length ? `\n\n注意：${exhausted.map((r) => r.name).join("、")} 已出過這一輪所有的題目，這輪會重複出題。` : "");
   if (!confirm(msg)) return;
 
   const roundId = randomId();
   const ops = [];
   for (const r of ready) {
-    const cands = candidatesFor(r);
-    const idx = pickRandom(cands.length ? cands : valid);
-    const q = questions[idx];
+    const cands = candidatesFor(r, roundIdx);
+    const q = pickRandom(cands.length ? cands : valid);
     const active = activeGroups(r.id);
     const spy = pickRandom(active);  // 每桌隨機一位玩家是臥底
     for (const p of active) {
@@ -190,11 +198,11 @@ $("#btnStartAll").onclick = async () => {
       }));
     }
     ops.push((b) => b.set(doc(db, "rooms", r.id, "private", "state"), {
-      spyUid: spy.id, spyName: names.get(spy.id), normal: q.normal, spy: q.spy, roundId, round: roundIdx, qIndex: idx,
+      spyUid: spy.id, spyName: names.get(spy.id), normal: q.normal, spy: q.spy, roundId, round: roundIdx,
     }));
     ops.push((b) => b.update(doc(db, "rooms", r.id), {
       status: "playing", round: roundIdx, roundId, duration, startedAt: serverTimestamp(), reveal: null,
-      usedQ: arrayUnion(idx),
+      usedQ: arrayUnion(questionKey(q)),
     }));
   }
   // 全場狀態放最後：投影幕開始倒數時各桌答案已就緒
@@ -271,11 +279,11 @@ function renderRooms() {
   list.innerHTML = rooms.map((r) => {
     const gs = groupsByRoom.get(r.id) || [];
     const [lbl, cls] = stLabel[r.status] || [r.status, "grey"];
-    const used = (r.usedQ || []).map((i) => CN_NUM[i]).join("、");
+    const used = (r.usedQ || []).filter((k) => typeof k === "string").map((k) => k.split("")[0]).join("、");
     return `
     <li class="group-item ${r.id === selectedRoom ? "selected" : ""}">
       <span class="name">${esc(r.name || r.id)}</span>
-      <span class="muted">${gs.length} 人${used ? `・已出第${used}題` : ""}</span>
+      <span class="muted">${gs.length} 人${used ? `・已出：${esc(used)}` : ""}</span>
       <span class="tag ${cls}">${lbl}</span>
       <span class="grow"></span>
       <button class="btn ghost small" data-room="${r.id}">${r.id === selectedRoom ? "收起" : "管理"}</button>

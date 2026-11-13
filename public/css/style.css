@@ -378,3 +378,18 @@ label { font-size: .9rem; color: var(--ink-soft); }
 .qr-card .qr-url { font-size: .9rem; color: var(--ink-faint); word-break: break-all; max-width: min(34vh, 360px); margin: 4px auto 0; }
 .member-names { display: block; font-size: .85rem; color: var(--ink-soft); margin-top: 2px; word-break: break-all; }
 .big-name-input { font-size: 1.6rem !important; text-align: center; letter-spacing: .15em; }
+
+/* 題目設計：依輪分區 */
+.round-block { margin-top: 22px; }
+.round-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--porcelain); }
+.round-head h3 { margin: 0; font-size: 1.4rem; color: var(--porcelain); }
+.round-head .muted { flex: 1; }
+.q-card .q-actions { display: flex; gap: 6px; }
+.q-add {
+  display: grid; place-items: center; min-height: 140px; cursor: pointer;
+  border: 2px dashed var(--paper-3); border-radius: var(--radius); color: var(--ink-faint);
+  background: transparent; font: inherit; font-size: 1.1rem; letter-spacing: .15em;
+}
+.q-add:hover { border-color: var(--porcelain); color: var(--porcelain); }
+.q-preview-round { margin: 10px 0 2px; font-weight: 700; color: var(--porcelain); letter-spacing: .15em; }
+.q-preview-round.next { color: var(--cinnabar); }

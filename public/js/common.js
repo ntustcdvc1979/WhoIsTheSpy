@@ -32,25 +32,39 @@ export const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistenc
 export const db = getFirestore(app);
 
 export const CN_NUM = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
-export const QUESTION_COUNT = 5;
+export const MAX_ROUNDS = 10;
+export const MAX_QUESTIONS_PER_ROUND = 30;
+
+/** 第 n 輪（0 起算）的中文名稱 */
+export const roundLabel = (i) => `第${CN_NUM[i] || i + 1}輪`;
 
 // 題庫存在 Firestore bank/questions（只有白名單主持人可讀寫）
-export const DEFAULT_QUESTIONS = [
-  { normal: "龍捲風", spy: "颱風" },
-  { normal: "雙截棍", spy: "三節棍" },
-  { normal: "珍珠奶茶", spy: "椰果奶茶" },
-  { normal: "青花瓷", spy: "白瓷" },
-  { normal: "蝸牛", spy: "蛞蝓" },
+// 格式：{ rounds: [ { questions: [ { normal, spy }, ... ] }, ... ] }
+// 第 N 輪開始時，各桌只會從第 N 輪的題目中抽題
+export const DEFAULT_ROUNDS = [
+  { questions: [
+    { normal: "龍捲風", spy: "颱風" },
+    { normal: "雙截棍", spy: "三節棍" },
+    { normal: "珍珠奶茶", spy: "椰果奶茶" },
+  ] },
+  { questions: [
+    { normal: "青花瓷", spy: "白瓷" },
+    { normal: "蝸牛", spy: "蛞蝓" },
+    { normal: "鋼琴", spy: "小提琴" },
+  ] },
 ];
 
-export function normalizeQuestions(list) {
-  const out = [];
-  for (let i = 0; i < QUESTION_COUNT; i++) {
-    const q = (Array.isArray(list) && list[i]) || {};
-    out.push({ normal: String(q.normal || "").trim(), spy: String(q.spy || "").trim() });
-  }
-  return out;
+const cleanQ = (q) => ({ normal: String(q?.normal || "").trim(), spy: String(q?.spy || "").trim() });
+
+/** 把 Firestore 的題庫資料轉成 rounds 陣列；相容舊格式 { list: [...] }（視為第一輪） */
+export function normalizeRounds(data) {
+  let rounds = data?.rounds;
+  if (!Array.isArray(rounds)) rounds = Array.isArray(data?.list) ? [{ questions: data.list }] : DEFAULT_ROUNDS;
+  return rounds.map((r) => ({ questions: (Array.isArray(r?.questions) ? r.questions : []).map(cleanQ) }));
 }
+
+/** 用詞本身當作題目的識別，避免同一桌在不同輪抽到同一組詞 */
+export const questionKey = (q) => `${q.normal}${q.spy}`;
 
 /** 回傳錯誤訊息；沒問題回傳空字串 */
 export function questionProblem(q) {
