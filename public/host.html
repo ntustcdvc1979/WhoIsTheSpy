@@ -37,6 +37,7 @@
         <h2>主持人請登入</h2>
         <p class="muted">需使用 Google 帳號登入才能設定題目與開始遊戲</p>
         <button class="btn red block" id="btnGoogle">以 Google 帳號登入</button>
+        <p id="loginHint" hidden style="margin:14px 0 0;padding:10px;background:var(--paper-2);border-left:3px solid var(--cinnabar);text-align:left;font-size:.9rem"></p>
       </div>
     </section>
 
@@ -44,7 +45,7 @@
     <section data-view="denied" hidden>
       <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
         <h2>無法使用主控台</h2>
-        <p class="muted">此帳號不在主持人白名單內。</p>
+        <p class="muted" id="deniedReason">此帳號不在主持人白名單內。</p>
       </div>
     </section>
 

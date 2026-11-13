@@ -36,13 +36,14 @@
         <h2>題目設計</h2>
         <p class="muted">僅限主持人，請使用 Google 帳號登入</p>
         <button class="btn red block" id="btnGoogle">以 Google 帳號登入</button>
+        <p id="loginHint" hidden style="margin:14px 0 0;padding:10px;background:var(--paper-2);border-left:3px solid var(--cinnabar);text-align:left;font-size:.9rem"></p>
       </div>
     </section>
 
     <section data-view="denied" hidden>
       <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
         <h2>無法編輯題目</h2>
-        <p class="muted">此帳號不在主持人白名單內。</p>
+        <p class="muted" id="deniedReason">此帳號不在主持人白名單內。</p>
       </div>
     </section>
 

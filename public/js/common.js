@@ -1,6 +1,6 @@
 // 共用：Firebase 初始化與小工具
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc as fsDoc, onSnapshot as fsOnSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // 設定來源（金鑰不寫死在程式碼、也不進 git）：
 // 1. 部署在 Firebase Hosting：自動讀取 /__/firebase/init.json
@@ -25,7 +25,10 @@ async function loadFirebaseConfig() {
 }
 
 export const app = initializeApp(await loadFirebaseConfig());
-export const auth = getAuth(app);
+// 不掛 redirect 解析器：避免在 GitHub Pages（與 authDomain 不同網域）上，
+// 因瀏覽器分割儲存空間導致「等待 redirect 結果」卡住、登入狀態永遠不回來。
+// Google 登入一律用彈出視窗（signInWithPopup 時再傳入 browserPopupRedirectResolver）。
+export const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
 export const db = getFirestore(app);
 
 export const CN_NUM = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
