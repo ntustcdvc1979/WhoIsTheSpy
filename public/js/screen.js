@@ -35,12 +35,10 @@ function render() {
   showView(st === "playing" || st === "revealed" ? st : "lobby");
   $("#screenStatus").textContent = { lobby: "待命中", playing: "遊戲進行中", revealed: "揭曉" }[st] || "";
   if (st === "playing") {
-    $("#roundLabel").textContent = `第${CN_NUM[game.round] || ""}題`;
+    $("#roundLabel").textContent = `第${CN_NUM[game.round] || ""}輪`;
     renderCountdown();
   } else if (st === "revealed") {
-    $("#revealLabel").textContent = `第${CN_NUM[game.round] || ""}題・答案揭曉`;
-    $("#wNormal").textContent = game.normal || "";
-    $("#wSpy").textContent = game.spy || "";
+    $("#revealLabel").textContent = `第${CN_NUM[game.round] || ""}輪・答案揭曉`;
   }
 }
 

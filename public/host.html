@@ -70,10 +70,11 @@
           <!-- 全場控制 -->
           <div class="card">
             <div class="card-title">全場控制（所有房間）</div>
-            <div class="row" style="margin-bottom:10px">
+            <div class="row" style="margin-bottom:10px;align-items:flex-end">
               <div class="grow">
-                <label for="selQuestion">本輪題目</label>
-                <select id="selQuestion"></select>
+                <label>下一輪</label>
+                <div style="font-size:1.4rem;letter-spacing:.2em" id="nextRound">第一輪</div>
+                <div class="muted" style="font-size:.85rem">每個房間隨機出題，同一房間不會重複</div>
               </div>
               <div style="width:130px">
                 <label for="inpDuration">倒數（秒）</label>
@@ -92,6 +93,9 @@
               <button class="btn ghost grow" id="btnLobbyAll">全部回到待命</button>
             </div>
             <p class="muted" id="ctrlHint" style="margin:10px 0 0"></p>
+            <div class="row" style="justify-content:flex-end;margin-top:8px">
+              <button class="btn ghost small" id="btnResetRounds">重置輪次（新的一場）</button>
+            </div>
           </div>
 
           <!-- 房間列表 -->

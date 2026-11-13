@@ -1,8 +1,8 @@
-import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, CN_NUM, QUESTION_COUNT, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
+import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, CN_NUM, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
 import { initHostAuth } from "./host-auth.js";
 import {
   doc, getDoc, updateDoc, collection, onSnapshot, query, orderBy,
-  serverTimestamp, writeBatch, getDocs, where,
+  serverTimestamp, writeBatch, getDocs, where, arrayUnion,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const GAME = doc(db, "game", "state");
@@ -95,23 +95,25 @@ function renderAll() {
 
 /* ---------------- 題目預覽 ---------------- */
 function renderQuestions() {
-  const cur = game.status !== "lobby" ? game.round : Number($("#selQuestion").value);
-  $("#qPreview").innerHTML = questions.map((q, i) => `
-    <li class="${i === cur ? "current" : ""}">
+  $("#qPreview").innerHTML = questions.map((q, i) => {
+    const bad = questionProblem(q);
+    return `
+    <li>
       <span class="q-no">第${CN_NUM[i]}題</span>
       <span>${esc(q.normal || "（未填）")}</span>
-      <span class="spyw">${esc(q.spy || "（未填）")}</span>
-    </li>`).join("");
-  $("#qNote").textContent = bankSaved ? "左：平民詞　右：臥底詞" : "目前使用範例題目，可到「題目設計」修改並儲存。";
-  const sel = $("#selQuestion");
-  const val = sel.value;
-  sel.innerHTML = questions.map((q, i) => {
-    const bad = questionProblem(q);
-    return `<option value="${i}">第${CN_NUM[i]}題${bad ? "（" + bad + "）" : ""}</option>`;
+      <span class="spyw">${esc(q.spy || "（未填）")}${bad ? ' <span class="tag grey">不會被抽到</span>' : ""}</span>
+    </li>`;
   }).join("");
-  if (val !== "") sel.value = val;
+  $("#qNote").textContent = (bankSaved ? "左：平民詞　右：臥底詞。" : "目前使用範例題目，可到「題目設計」修改並儲存。")
+    + "每輪開始時，各房間從尚未出過的題目中隨機抽一題。";
 }
-$("#selQuestion").onchange = () => renderQuestions();
+
+/** 該房間這一輪可抽的題目索引（已完成且沒出過的） */
+function candidatesFor(room) {
+  const used = new Set(room.usedQ || []);
+  return questions.map((q, i) => i).filter((i) => !questionProblem(questions[i]) && !used.has(i));
+}
+const pickRandom = (arr) => arr[crypto.getRandomValues(new Uint32Array(1))[0] % arr.length];
 
 /* ---------------- 全場控制 ---------------- */
 document.querySelectorAll("[data-dur]").forEach((b) => {
@@ -124,15 +126,15 @@ function renderControls() {
   $("#btnStartAll").disabled = st === "playing" || ready === 0;
   $("#btnRevealAll").disabled = st !== "playing";
   $("#btnLobbyAll").disabled = st === "lobby";
-  $("#selQuestion").disabled = st !== "lobby";
-  const rn = `第${CN_NUM[game.round] || ""}題`;
+  $("#nextRound").textContent = `第${CN_NUM[game.roundCount || 0] || (game.roundCount || 0) + 1}輪`;
+  const rn = `第${CN_NUM[game.round] || ""}輪`;
   $("#statusText").textContent = { lobby: "待命中", playing: `${rn}進行中`, revealed: `${rn}已揭曉` }[st] || st;
   const notReady = rooms.length - ready;
   $("#ctrlHint").textContent =
     st === "lobby"
       ? (ready === 0
         ? "所有玩家畫面皆為待命。至少要有一個房間有 2 組以上才能開始。"
-        : `所有玩家畫面皆為待命。可開始的房間：${ready} 間${notReady ? `（${notReady} 間組數不足，會維持待命）` : ""}。按下後各房間同時發送答案，每間隨機一組是臥底。`)
+        : `所有玩家畫面皆為待命。可開始的房間：${ready} 間${notReady ? `（${notReady} 間組數不足，會維持待命）` : ""}。按下後各房間各自隨機抽題並同時發送答案，每間隨機一組是臥底。`)
       : st === "playing"
         ? "各房間已收到答案，投影幕倒數中。討論結束後按「全部揭曉臥底」。"
         : "已揭曉。按「全部回到待命」準備下一題。";
@@ -156,40 +158,45 @@ async function commitOps(ops) {
 }
 
 $("#btnStartAll").onclick = async () => {
-  const idx = Number($("#selQuestion").value) || 0;
-  const q = questions[idx];
-  const bad = questionProblem(q);
-  if (bad) return toast(`這一題${bad}，請先到「題目設計」修改`);
+  const valid = questions.map((q, i) => i).filter((i) => !questionProblem(questions[i]));
+  if (!valid.length) return toast("沒有完整的題目，請先到「題目設計」設定");
   const duration = Math.round(Number($("#inpDuration").value));
   if (!(duration >= 10 && duration <= 3600)) return toast("倒數秒數請設定在 10 ~ 3600");
 
   const ready = rooms.filter((r) => activeGroups(r.id).length >= 2);
   const skipped = rooms.filter((r) => activeGroups(r.id).length < 2);
   if (!ready.length) return toast("沒有任何房間有 2 組以上");
-  const msg = `第${CN_NUM[idx]}題，${ready.length} 間房間一起開始？`
-    + (skipped.length ? `\n\n組數不足、維持待命：${skipped.map((r) => r.name).join("、")}` : "");
+  const exhausted = ready.filter((r) => !candidatesFor(r).length);
+  const roundIdx = game.roundCount || 0;
+  const msg = `第${CN_NUM[roundIdx] || roundIdx + 1}輪，${ready.length} 間房間一起開始？`
+    + (skipped.length ? `\n\n組數不足、維持待命：${skipped.map((r) => r.name).join("、")}` : "")
+    + (exhausted.length ? `\n\n注意：${exhausted.map((r) => r.name).join("、")} 已出完所有題目，這輪會重複出題。` : "");
   if (!confirm(msg)) return;
 
   const roundId = randomId();
   const ops = [];
   for (const r of ready) {
+    const cands = candidatesFor(r);
+    const idx = pickRandom(cands.length ? cands : valid);
+    const q = questions[idx];
     const active = activeGroups(r.id);
-    const spy = active[crypto.getRandomValues(new Uint32Array(1))[0] % active.length];
+    const spy = pickRandom(active);
     for (const g of active) {
       ops.push((b) => b.set(doc(db, "rooms", r.id, "words", g.id), {
         word: g.id === spy.id ? q.spy : q.normal, roundId, round: idx,
       }));
     }
     ops.push((b) => b.set(doc(db, "rooms", r.id, "private", "state"), {
-      spyGroupId: spy.id, spyGroupName: spy.name, normal: q.normal, spy: q.spy, roundId, round: idx,
+      spyGroupId: spy.id, spyGroupName: spy.name, normal: q.normal, spy: q.spy, roundId, round: roundIdx, qIndex: idx,
     }));
     ops.push((b) => b.update(doc(db, "rooms", r.id), {
-      status: "playing", round: idx, roundId, duration, startedAt: serverTimestamp(), reveal: null,
+      status: "playing", round: roundIdx, roundId, duration, startedAt: serverTimestamp(), reveal: null,
+      usedQ: arrayUnion(idx),
     }));
   }
   // 全場狀態放最後：投影幕開始倒數時各房間答案已就緒
   ops.push((b) => b.set(GAME, {
-    status: "playing", round: idx, roundId, duration, startedAt: serverTimestamp(), normal: null, spy: null,
+    status: "playing", round: roundIdx, roundCount: roundIdx + 1, roundId, duration, startedAt: serverTimestamp(),
   }));
 
   $("#btnStartAll").disabled = true;
@@ -205,18 +212,16 @@ $("#btnRevealAll").onclick = async () => {
   try {
     const live = rooms.filter((r) => r.status === "playing" && r.roundId === game.roundId);
     const ops = [];
-    let words = null;
     for (const r of live) {
       const st = (await getDoc(doc(db, "rooms", r.id, "private", "state"))).data();
       if (!st || st.roundId !== r.roundId) continue;
-      words = words || { normal: st.normal, spy: st.spy };
       ops.push((b) => b.update(doc(db, "rooms", r.id), {
         status: "revealed",
         reveal: { spyGroupId: st.spyGroupId, spyGroupName: st.spyGroupName, normal: st.normal, spy: st.spy },
       }));
     }
-    const q = words || questions[game.round] || {};
-    ops.push((b) => b.update(GAME, { status: "revealed", normal: q.normal || "", spy: q.spy || "" }));
+    // 各房間題目不同，投影幕不顯示詞，只切換到揭曉狀態
+    ops.push((b) => b.update(GAME, { status: "revealed" }));
     await commitOps(ops);
   } catch (e) { toast(friendlyError(e)); }
 };
@@ -224,8 +229,6 @@ $("#btnRevealAll").onclick = async () => {
 $("#btnLobbyAll").onclick = async () => {
   if (!confirm("所有房間回到待命？（會清除本輪答案）")) return;
   try {
-    const wasRevealed = game.status === "revealed";
-    const next = Math.min((game.round ?? 0) + 1, QUESTION_COUNT - 1);
     const ops = [];
     for (const r of rooms) {
       const words = await getDocs(collection(db, "rooms", r.id, "words"));
@@ -234,9 +237,25 @@ $("#btnLobbyAll").onclick = async () => {
         ops.push((b) => b.update(doc(db, "rooms", r.id), { status: "lobby", roundId: null, reveal: null, startedAt: null }));
       }
     }
-    ops.push((b) => b.set(GAME, { status: "lobby", round: game.round ?? 0, roundId: null, duration: game.duration ?? 180, startedAt: null, normal: null, spy: null }));
+    ops.push((b) => b.set(GAME, {
+      status: "lobby", round: game.round ?? 0, roundCount: game.roundCount ?? 0,
+      roundId: null, duration: game.duration ?? 180, startedAt: null,
+    }));
     await commitOps(ops);
-    if (wasRevealed) { $("#selQuestion").value = String(next); renderQuestions(); }
+  } catch (e) { toast(friendlyError(e)); }
+};
+
+$("#btnResetRounds").onclick = async () => {
+  if (game.status === "playing") return toast("遊戲進行中，請先回到待命");
+  if (!confirm("重置輪次？下一輪會從「第一輪」開始，所有房間的出題紀錄清空（之前出過的題目可以再被抽到）。")) return;
+  try {
+    const ops = rooms.map((r) => (b) => b.update(doc(db, "rooms", r.id), { usedQ: [] }));
+    ops.push((b) => b.set(GAME, {
+      status: game.status || "lobby", round: 0, roundCount: 0, roundId: game.roundId ?? null,
+      duration: game.duration ?? 180, startedAt: game.startedAt ?? null,
+    }));
+    await commitOps(ops);
+    toast("已重置輪次");
   } catch (e) { toast(friendlyError(e)); }
 };
 
@@ -250,10 +269,11 @@ function renderRooms() {
     const gs = groupsByRoom.get(r.id) || [];
     const people = gs.reduce((a, g) => a + (g.members || []).length, 0);
     const [lbl, cls] = stLabel[r.status] || [r.status, "grey"];
+    const used = (r.usedQ || []).map((i) => CN_NUM[i]).join("、");
     return `
     <li class="group-item ${r.id === selectedRoom ? "selected" : ""}">
       <span class="name">${esc(r.name || r.id)}</span>
-      <span class="muted">${gs.length} 組・${people} 人</span>
+      <span class="muted">${gs.length} 組・${people} 人${used ? `・已出第${used}題` : ""}</span>
       <span class="tag ${cls}">${lbl}</span>
       <span class="grow"></span>
       <button class="btn ghost small" data-room="${r.id}">${r.id === selectedRoom ? "收起" : "管理"}</button>
@@ -300,6 +320,9 @@ function renderDetail() {
   $("#detailMeta").textContent = `（${gs.length} 組，${gs.filter((g) => !g.eliminated).length} 組在場）`;
   $("#groupEmpty").hidden = gs.length > 0;
   const live = r.status !== "lobby" && selectedSecret && selectedSecret.roundId === r.roundId;
+  if (live) {
+    $("#detailMeta").textContent += `・本輪：${selectedSecret.normal} ／ ${selectedSecret.spy}`;
+  }
   $("#groupList").innerHTML = gs.map((g) => `
     <li class="group-item ${g.eliminated ? "out" : ""}">
       <span class="name">${esc(g.name)}</span>

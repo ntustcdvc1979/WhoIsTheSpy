@@ -241,7 +241,7 @@ function render() {
   $("#btnLeave").hidden = room.status !== "lobby";
 
   const st = room.status;
-  const roundName = `第${CN_NUM[room.round] || ""}題`;
+  const roundName = `第${CN_NUM[room.round] || ""}輪`;
   const hasWord = word && word.roundId && word.roundId === room.roundId;
 
   // 只要主持人沒按「開始遊戲」，就是待命畫面；出局組另外顯示出局
