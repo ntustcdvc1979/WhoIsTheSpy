@@ -35,26 +35,28 @@ async function init() {
   showRoomPicker();
 }
 
-/* ---------------- 選擇 / 建立房間 ---------------- */
+/* ---------------- 選擇 / 建立桌 ---------------- */
 let roomsUnsub = null;
+let pickerRooms = [];
 
 function showRoomPicker() {
   showView("rooms");
-  $("#roomLabel").textContent = "選擇房間";
+  $("#roomLabel").textContent = "選擇你們這一桌";
   $("#btnSwitchRoom").hidden = true;
   if (roomsUnsub || !uid) return;
   roomsUnsub = onSnapshot(query(collection(db, "rooms"), orderBy("createdAt")), (s) => {
     const rooms = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    pickerRooms = rooms;
     $("#roomEmpty").hidden = rooms.length > 0;
     $("#roomList").innerHTML = rooms.map((r) => `
       <li class="group-item">
-        <span class="name">${esc(r.name || "房間")}</span>
+        <span class="name">${esc(r.name || "桌")}</span>
         ${r.status === "lobby" ? "" : '<span class="tag red">進行中</span>'}
         <span class="grow"></span>
-        <button class="btn small" data-room="${r.id}">進入</button>
+        <button class="btn small" data-room="${r.id}">加入</button>
       </li>`).join("");
     $("#roomList").querySelectorAll("[data-room]").forEach((b) => {
-      b.onclick = async () => { if (!(await enterRoom(b.dataset.room))) toast("房間已不存在"); };
+      b.onclick = async () => { if (!(await enterRoom(b.dataset.room))) toast("這一桌已不存在"); };
     });
   }, (e) => toast(friendlyError(e)));
 }
@@ -66,7 +68,12 @@ function stopRoomPicker() {
 
 $("#btnCreateRoom").onclick = async () => {
   const name = $("#inpRoomName").value.trim();
-  if (!name) return toast("請輸入房間名稱");
+  if (!name) return toast("請輸入桌名");
+  const same = pickerRooms.find((r) => r.name === name);
+  if (same) {
+    if (confirm(`已經有「${name}」了，要直接加入嗎？`)) await enterRoom(same.id);
+    return;
+  }
   const btn = $("#btnCreateRoom");
   btn.disabled = true;
   try {
@@ -79,8 +86,8 @@ $("#btnCreateRoom").onclick = async () => {
 $("#inpRoomName").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnCreateRoom").click(); });
 
 $("#btnSwitchRoom").onclick = async () => {
-  if (room && room.status !== "lobby") return toast("遊戲進行中，無法換房間");
-  if (myGroup && !confirm("換房間會離開目前的組別，確定嗎？")) return;
+  if (room && room.status !== "lobby") return toast("遊戲進行中，無法換桌");
+  if (myGroup && !confirm("換桌會離開目前的組別，確定嗎？")) return;
   try {
     if (myGroup) {
       const batch = writeBatch(db);
@@ -113,14 +120,14 @@ async function enterRoom(c, silent = false) {
   unsubs.push(onSnapshot(doc(db, "rooms", c), (s) => {
     room = s.data() || null;
     if (!room) {
-      toast("房間已被刪除");
+      toast("這一桌已被刪除");
       leaveRoom();
       localStorage.removeItem(LS_ROOM);
       setRoomInUrl(null);
       showRoomPicker();
       return;
     }
-    $("#roomLabel").textContent = room.name || "房間";
+    $("#roomLabel").textContent = room.name || "桌";
     if (room.roundId !== lastRoundId) { covered = true; lastRoundId = room.roundId; }
     render();
   }, (e) => toast(friendlyError(e))));

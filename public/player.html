@@ -19,24 +19,26 @@
         <div class="brand-sub" id="roomLabel">分組推理遊戲</div>
       </div>
     </div>
-    <button class="btn ghost small" id="btnSwitchRoom" hidden>換房間</button>
+    <button class="btn ghost small" id="btnSwitchRoom" hidden>換桌</button>
   </header>
 
   <main class="wrap">
     <section data-view="loading"><p class="muted" style="text-align:center">研墨中……</p></section>
 
-    <!-- 選擇房間 -->
+    <!-- 選擇桌 -->
     <section data-view="rooms" hidden>
       <div class="card">
-        <div class="card-title">選擇房間</div>
+        <div class="card-title">找到你們這一桌</div>
+        <p class="muted" style="margin-top:-6px">不需要登入。同桌的人點自己那一桌的「加入」即可。</p>
         <ul class="group-list join-list" id="roomList"></ul>
-        <p class="muted" id="roomEmpty">還沒有房間，建立第一間吧！</p>
+        <p class="muted" id="roomEmpty">還沒有桌，建立第一桌吧！</p>
       </div>
       <div class="card">
-        <div class="card-title">建立新房間</div>
+        <div class="card-title">還沒有你們這一桌？</div>
+        <p class="muted" style="margin-top:-6px">任何人都可以建立，建好後請同桌的人來加入。</p>
         <div class="row">
           <input type="text" id="inpRoomName" class="grow" maxlength="12" placeholder="例：第一桌" style="width:auto">
-          <button class="btn red" id="btnCreateRoom">建立</button>
+          <button class="btn red" id="btnCreateRoom">建立這一桌</button>
         </div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-// 投影幕：全場共用一台，只顯示「客」的 QR Code 與倒數，不顯示房間資訊
+// 投影幕：全場共用一台，只顯示「客」的 QR Code 與倒數，不顯示桌資訊
 import { db, $, toast, showView, ensureAnonymous, remainingSeconds, fmtTime, friendlyError, CN_NUM } from "./common.js";
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 

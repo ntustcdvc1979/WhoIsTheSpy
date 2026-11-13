@@ -105,10 +105,10 @@ function renderQuestions() {
     </li>`;
   }).join("");
   $("#qNote").textContent = (bankSaved ? "左：平民詞　右：臥底詞。" : "目前使用範例題目，可到「題目設計」修改並儲存。")
-    + "每輪開始時，各房間從尚未出過的題目中隨機抽一題。";
+    + "每輪開始時，各桌從尚未出過的題目中隨機抽一題。";
 }
 
-/** 該房間這一輪可抽的題目索引（已完成且沒出過的） */
+/** 該桌這一輪可抽的題目索引（已完成且沒出過的） */
 function candidatesFor(room) {
   const used = new Set(room.usedQ || []);
   return questions.map((q, i) => i).filter((i) => !questionProblem(questions[i]) && !used.has(i));
@@ -133,10 +133,10 @@ function renderControls() {
   $("#ctrlHint").textContent =
     st === "lobby"
       ? (ready === 0
-        ? "所有玩家畫面皆為待命。至少要有一個房間有 2 組以上才能開始。"
-        : `所有玩家畫面皆為待命。可開始的房間：${ready} 間${notReady ? `（${notReady} 間組數不足，會維持待命）` : ""}。按下後各房間各自隨機抽題並同時發送答案，每間隨機一組是臥底。`)
+        ? "所有玩家畫面皆為待命。至少要有一桌有 2 組以上才能開始。"
+        : `所有玩家畫面皆為待命。可開始的桌：${ready} 桌${notReady ? `（${notReady} 桌組數不足，會維持待命）` : ""}。按下後各桌各自隨機抽題並同時發送答案，每桌隨機一組是臥底。`)
       : st === "playing"
-        ? "各房間已收到答案，投影幕倒數中。討論結束後按「全部揭曉臥底」。"
+        ? "各桌已收到答案，投影幕倒數中。討論結束後按「全部揭曉臥底」。"
         : "已揭曉。按「全部回到待命」準備下一題。";
 }
 
@@ -165,10 +165,10 @@ $("#btnStartAll").onclick = async () => {
 
   const ready = rooms.filter((r) => activeGroups(r.id).length >= 2);
   const skipped = rooms.filter((r) => activeGroups(r.id).length < 2);
-  if (!ready.length) return toast("沒有任何房間有 2 組以上");
+  if (!ready.length) return toast("沒有任何一桌有 2 組以上");
   const exhausted = ready.filter((r) => !candidatesFor(r).length);
   const roundIdx = game.roundCount || 0;
-  const msg = `第${CN_NUM[roundIdx] || roundIdx + 1}輪，${ready.length} 間房間一起開始？`
+  const msg = `第${CN_NUM[roundIdx] || roundIdx + 1}輪，${ready.length} 桌一起開始？`
     + (skipped.length ? `\n\n組數不足、維持待命：${skipped.map((r) => r.name).join("、")}` : "")
     + (exhausted.length ? `\n\n注意：${exhausted.map((r) => r.name).join("、")} 已出完所有題目，這輪會重複出題。` : "");
   if (!confirm(msg)) return;
@@ -194,7 +194,7 @@ $("#btnStartAll").onclick = async () => {
       usedQ: arrayUnion(idx),
     }));
   }
-  // 全場狀態放最後：投影幕開始倒數時各房間答案已就緒
+  // 全場狀態放最後：投影幕開始倒數時各桌答案已就緒
   ops.push((b) => b.set(GAME, {
     status: "playing", round: roundIdx, roundCount: roundIdx + 1, roundId, duration, startedAt: serverTimestamp(),
   }));
@@ -202,7 +202,7 @@ $("#btnStartAll").onclick = async () => {
   $("#btnStartAll").disabled = true;
   try {
     await commitOps(ops);
-    toast(`${ready.length} 間房間已開始！`);
+    toast(`${ready.length} 桌已開始！`);
   } catch (e) {
     toast(friendlyError(e));
   } finally { renderControls(); }
@@ -220,14 +220,14 @@ $("#btnRevealAll").onclick = async () => {
         reveal: { spyGroupId: st.spyGroupId, spyGroupName: st.spyGroupName, normal: st.normal, spy: st.spy },
       }));
     }
-    // 各房間題目不同，投影幕不顯示詞，只切換到揭曉狀態
+    // 各桌題目不同，投影幕不顯示詞，只切換到揭曉狀態
     ops.push((b) => b.update(GAME, { status: "revealed" }));
     await commitOps(ops);
   } catch (e) { toast(friendlyError(e)); }
 };
 
 $("#btnLobbyAll").onclick = async () => {
-  if (!confirm("所有房間回到待命？（會清除本輪答案）")) return;
+  if (!confirm("所有桌回到待命？（會清除本輪答案）")) return;
   try {
     const ops = [];
     for (const r of rooms) {
@@ -247,7 +247,7 @@ $("#btnLobbyAll").onclick = async () => {
 
 $("#btnResetRounds").onclick = async () => {
   if (game.status === "playing") return toast("遊戲進行中，請先回到待命");
-  if (!confirm("重置輪次？下一輪會從「第一輪」開始，所有房間的出題紀錄清空（之前出過的題目可以再被抽到）。")) return;
+  if (!confirm("重置輪次？下一輪會從「第一輪」開始，所有桌的出題紀錄清空（之前出過的題目可以再被抽到）。")) return;
   try {
     const ops = rooms.map((r) => (b) => b.update(doc(db, "rooms", r.id), { usedQ: [] }));
     ops.push((b) => b.set(GAME, {
@@ -259,11 +259,11 @@ $("#btnResetRounds").onclick = async () => {
   } catch (e) { toast(friendlyError(e)); }
 };
 
-/* ---------------- 房間列表 ---------------- */
+/* ---------------- 桌列表 ---------------- */
 function renderRooms() {
   const list = $("#roomList");
   $("#roomEmpty").hidden = rooms.length > 0;
-  $("#roomCount").textContent = rooms.length ? `（${rooms.length} 間）` : "";
+  $("#roomCount").textContent = rooms.length ? `（${rooms.length} 桌）` : "";
   const stLabel = { lobby: ["待命", "grey"], playing: ["進行中", "red"], revealed: ["已揭曉", "blue"] };
   list.innerHTML = rooms.map((r) => {
     const gs = groupsByRoom.get(r.id) || [];
@@ -286,8 +286,8 @@ function renderRooms() {
 
 $("#btnCreateRoom").onclick = async () => {
   const name = $("#inpRoomName").value.trim();
-  if (!name) return toast("請輸入房間名稱");
-  if (rooms.some((r) => r.name === name)) return toast("已有同名房間");
+  if (!name) return toast("請輸入桌名");
+  if (rooms.some((r) => r.name === name)) return toast("已有同名桌");
   try {
     const id = await createRoom(user.uid, name);
     $("#inpRoomName").value = "";
@@ -296,7 +296,7 @@ $("#btnCreateRoom").onclick = async () => {
   } catch (e) { toast(friendlyError(e)); }
 };
 
-/* ---------------- 房間詳情（組別管理） ---------------- */
+/* ---------------- 桌詳情（組別管理） ---------------- */
 function selectRoom(id) {
   selectedRoom = id;
   selectedSecret = null;
@@ -353,7 +353,7 @@ function renderDetail() {
   });
 }
 
-/** 刪除房間內所有子資料；deleteRoom 為 true 時連房間本身一起刪 */
+/** 刪除桌內所有子資料；deleteRoom 為 true 時連桌本身一起刪 */
 async function wipeRoom(roomId, deleteRoom) {
   const ops = [];
   for (const sub of ["groups", "words", "members", "private"]) {
@@ -372,6 +372,6 @@ $("#btnClearGroups").onclick = async () => {
 
 $("#btnDeleteRoom").onclick = async () => {
   const r = rooms.find((x) => x.id === selectedRoom);
-  if (!r || !confirm(`確定刪除房間「${r.name}」？組別與答案都會一併刪除。`)) return;
-  try { await wipeRoom(r.id, true); selectRoom(null); toast("已刪除房間"); } catch (e) { toast(friendlyError(e)); }
+  if (!r || !confirm(`確定刪除桌「${r.name}」？組別與答案都會一併刪除。`)) return;
+  try { await wipeRoom(r.id, true); selectRoom(null); toast("已刪除這一桌"); } catch (e) { toast(friendlyError(e)); }
 };

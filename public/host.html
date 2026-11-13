@@ -69,12 +69,12 @@
         <div>
           <!-- 全場控制 -->
           <div class="card">
-            <div class="card-title">全場控制（所有房間）</div>
+            <div class="card-title">全場控制（所有桌）</div>
             <div class="row" style="margin-bottom:10px;align-items:flex-end">
               <div class="grow">
                 <label>下一輪</label>
                 <div style="font-size:1.4rem;letter-spacing:.2em" id="nextRound">第一輪</div>
-                <div class="muted" style="font-size:.85rem">每個房間隨機出題，同一房間不會重複</div>
+                <div class="muted" style="font-size:.85rem">每一桌各自隨機出題，同一桌不會重複</div>
               </div>
               <div style="width:130px">
                 <label for="inpDuration">倒數（秒）</label>
@@ -87,7 +87,7 @@
               <button class="btn ghost small" data-dur="180">3 分</button>
               <button class="btn ghost small" data-dur="300">5 分</button>
             </div>
-            <button class="btn red block" id="btnStartAll" style="font-size:1.4rem;padding:18px">全部房間一起開始</button>
+            <button class="btn red block" id="btnStartAll" style="font-size:1.4rem;padding:18px">所有桌一起開始</button>
             <div class="row" style="margin-top:10px">
               <button class="btn blue grow" id="btnRevealAll">全部揭曉臥底</button>
               <button class="btn ghost grow" id="btnLobbyAll">全部回到待命</button>
@@ -98,27 +98,27 @@
             </div>
           </div>
 
-          <!-- 房間列表 -->
+          <!-- 桌列表 -->
           <div class="card">
-            <div class="card-title">房間 <span class="muted" id="roomCount"></span></div>
+            <div class="card-title">桌 <span class="muted" id="roomCount"></span></div>
             <ul class="group-list" id="roomList"></ul>
-            <p class="muted" id="roomEmpty">尚無房間。玩家掃投影幕 QR Code 後可自行建立，或在下方建立。</p>
+            <p class="muted" id="roomEmpty">還沒有任何一桌。玩家掃投影幕 QR Code 後可自行建立，或在下方新增。</p>
             <div class="row" style="margin-top:12px">
-              <input type="text" id="inpRoomName" class="grow" maxlength="12" placeholder="新房間名稱，例：第一桌" style="width:auto">
-              <button class="btn" id="btnCreateRoom">建立房間</button>
+              <input type="text" id="inpRoomName" class="grow" maxlength="12" placeholder="新桌名，例：第一桌" style="width:auto">
+              <button class="btn" id="btnCreateRoom">新增一桌</button>
             </div>
           </div>
         </div>
 
         <div>
-          <!-- 房間詳情 -->
+          <!-- 桌詳情 -->
           <div class="card" id="roomDetail" hidden>
             <div class="card-title"><span id="detailName"></span> <span class="muted" id="detailMeta"></span></div>
             <ul class="group-list" id="groupList"></ul>
-            <p class="muted" id="groupEmpty">這個房間還沒有組別。</p>
+            <p class="muted" id="groupEmpty">這一桌還沒有組別。</p>
             <div class="row" style="justify-content:flex-end;margin-top:10px">
-              <button class="btn ghost small" id="btnClearGroups">清空此房間組別</button>
-              <button class="btn ghost small" id="btnDeleteRoom">刪除此房間</button>
+              <button class="btn ghost small" id="btnClearGroups">清空此桌組別</button>
+              <button class="btn ghost small" id="btnDeleteRoom">刪除此桌</button>
             </div>
           </div>
 
