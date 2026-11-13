@@ -28,7 +28,6 @@
   </header>
 
   <main class="wrap">
-    <!-- 載入中 -->
     <section data-view="loading"><p class="muted">研墨中……</p></section>
 
     <!-- 登入 -->
@@ -41,56 +40,36 @@
       </div>
     </section>
 
-    <!-- 選房間 -->
-    <section data-view="pick" hidden>
-      <div class="card" style="max-width:520px;margin:40px auto">
-        <div class="card-title">開設房間</div>
-        <p class="muted">任何人都可以建立房間（投影幕頁也能直接建立），系統會產生四位數房號。</p>
-        <button class="btn red block" id="btnCreateRoom">建立新房間</button>
-        <div id="createdBox" hidden style="margin-top:14px;text-align:center">
-          <div class="muted">已建立房間</div>
-          <div style="font-size:2.4rem;letter-spacing:.3em;color:var(--cinnabar)" id="createdCode"></div>
-          <a id="createdScreen" target="_blank">開啟投影幕</a>
-        </div>
-
-        <div id="hostOnlyBox" data-host-only hidden>
-          <hr style="border:0;border-top:1px dashed var(--paper-3);margin:20px 0">
-          <label for="resumeCode">主持人：輸入房號進入主控台（可操控任何房間）</label>
-          <div class="row" style="margin-top:6px">
-            <input type="text" id="resumeCode" class="grow" inputmode="numeric" maxlength="4" placeholder="四位數房號" style="width:auto">
-            <button class="btn" id="btnResume">開啟</button>
-          </div>
-        </div>
-
-        <p id="notHostBox" hidden class="muted" style="margin-top:18px;padding:10px;background:var(--paper-2);border-radius:4px">
-          此帳號不在主持人白名單，可以建立房間，但無法編輯題目或操控遊戲流程。
-        </p>
+    <!-- 非白名單 -->
+    <section data-view="denied" hidden>
+      <div class="card" style="max-width:440px;margin:40px auto;text-align:center">
+        <h2>無法使用主控台</h2>
+        <p class="muted">此帳號不在主持人白名單內。</p>
       </div>
     </section>
 
     <!-- 主控台 -->
-    <section data-view="room" hidden>
+    <section data-view="dash" hidden>
       <div class="status-strip">
         <div>
-          <div class="muted" style="color:#9fb3d1">房號</div>
-          <div class="code" id="roomCode">----</div>
+          <div class="muted" style="color:#9fb3d1">全場狀態</div>
+          <div class="code" style="font-size:1.6rem;letter-spacing:.2em" id="statusText">待命中</div>
         </div>
         <div style="text-align:center">
-          <div class="muted" style="color:#9fb3d1" id="statusText">大廳等待中</div>
+          <div class="muted" style="color:#9fb3d1">倒數</div>
           <div class="timer" id="hostTimer">–:––</div>
         </div>
         <div class="row">
-          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="openScreen" target="_blank">開投影幕</a>
-          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="openPlayer" target="_blank">玩家頁</a>
-          <button class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" id="btnNewRoom">換房間</button>
+          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" href="screen.html" target="_blank">開投影幕</a>
+          <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" href="player.html" target="_blank">玩家頁</a>
         </div>
       </div>
 
       <div class="grid-2">
         <div>
-          <!-- 遊戲控制 -->
+          <!-- 全場控制 -->
           <div class="card">
-            <div class="card-title">遊戲控制</div>
+            <div class="card-title">全場控制（所有房間）</div>
             <div class="row" style="margin-bottom:10px">
               <div class="grow">
                 <label for="selQuestion">本輪題目</label>
@@ -107,38 +86,43 @@
               <button class="btn ghost small" data-dur="180">3 分</button>
               <button class="btn ghost small" data-dur="300">5 分</button>
             </div>
-            <button class="btn red block" id="btnStart" style="font-size:1.4rem;padding:18px">開始遊戲</button>
+            <button class="btn red block" id="btnStartAll" style="font-size:1.4rem;padding:18px">全部房間一起開始</button>
             <div class="row" style="margin-top:10px">
-              <button class="btn blue grow" id="btnReveal">揭曉臥底</button>
-              <button class="btn ghost grow" id="btnLobby">結束本輪・回到待命</button>
+              <button class="btn blue grow" id="btnRevealAll">全部揭曉臥底</button>
+              <button class="btn ghost grow" id="btnLobbyAll">全部回到待命</button>
             </div>
             <p class="muted" id="ctrlHint" style="margin:10px 0 0"></p>
           </div>
 
-          <!-- 組別 -->
+          <!-- 房間列表 -->
           <div class="card">
-            <div class="card-title">組別 <span class="muted" id="groupCount"></span></div>
-            <ul class="group-list" id="groupList"></ul>
-            <p class="muted" id="groupEmpty">尚無組別，請玩家用手機掃投影幕上的 QR Code 建立組別。</p>
-            <div class="row" style="justify-content:flex-end;margin-top:10px">
-              <button class="btn ghost small" id="btnClearGroups">清空所有組別</button>
+            <div class="card-title">房間 <span class="muted" id="roomCount"></span></div>
+            <ul class="group-list" id="roomList"></ul>
+            <p class="muted" id="roomEmpty">尚無房間。玩家掃投影幕 QR Code 後可自行建立，或在下方建立。</p>
+            <div class="row" style="margin-top:12px">
+              <input type="text" id="inpRoomName" class="grow" maxlength="12" placeholder="新房間名稱，例：第一桌" style="width:auto">
+              <button class="btn" id="btnCreateRoom">建立房間</button>
             </div>
           </div>
         </div>
 
-        <!-- 題目 -->
         <div>
+          <!-- 房間詳情 -->
+          <div class="card" id="roomDetail" hidden>
+            <div class="card-title"><span id="detailName"></span> <span class="muted" id="detailMeta"></span></div>
+            <ul class="group-list" id="groupList"></ul>
+            <p class="muted" id="groupEmpty">這個房間還沒有組別。</p>
+            <div class="row" style="justify-content:flex-end;margin-top:10px">
+              <button class="btn ghost small" id="btnClearGroups">清空此房間組別</button>
+              <button class="btn ghost small" id="btnDeleteRoom">刪除此房間</button>
+            </div>
+          </div>
+
+          <!-- 題目預覽 -->
           <div class="card">
             <div class="card-title">本場題目 <span class="grow"></span><a class="btn ghost small" href="questions.html">編輯題目</a></div>
             <ul class="q-preview" id="qPreview"></ul>
             <p class="muted" id="qNote" style="margin:10px 0 0"></p>
-          </div>
-          <div class="card">
-            <div class="card-title">連結</div>
-            <p class="muted" style="margin:0 0 4px">玩家手機</p>
-            <div class="linkbox" id="linkPlayer"></div>
-            <p class="muted" style="margin:10px 0 4px">投影幕</p>
-            <div class="linkbox" id="linkScreen"></div>
           </div>
         </div>
       </div>

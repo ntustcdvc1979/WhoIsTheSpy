@@ -34,6 +34,12 @@ service cloud.firestore {
         && request.resource.data.list.size() <= 20;
     }
 
+    // 全場狀態（投影幕倒數用）：所有人可讀，只有白名單主持人可寫
+    match /game/{docId} {
+      allow read: if signedIn();
+      allow write: if isAllowedHost();
+    }
+
     // 白名單主持人可以操控「任何」房間
     function isHost(code) { return isAllowedHost(); }
 
@@ -43,7 +49,10 @@ service cloud.firestore {
       // 任何人（含匿名登入的投影幕 / 玩家）都可以建立房間，但只能建立「大廳」狀態的空房間
       allow create: if signedIn()
         && code.matches('^[0-9]{4}$')
-        && request.resource.data.keys().hasOnly(['createdBy', 'status', 'round', 'duration', 'roundId', 'startedAt', 'reveal', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'createdBy', 'status', 'round', 'duration', 'roundId', 'startedAt', 'reveal', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 12
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status == 'lobby'
         && request.resource.data.round == 0
@@ -63,7 +72,7 @@ service cloud.firestore {
 
       // 每位玩家「目前所屬組別」的唯一指標，用來保證一個人同時只屬於一組。
       // 讀答案以這裡為準，所以就算有人把自己硬塞進好幾組的名單，也只讀得到一組的答案。
-      // 第一次加入隨時可以；之後換組只能在大廳（遊戲進行中不能換組偷看別組答案）。
+      // 加入與換組都只能在待命狀態（遊戲進行中不能加入或換組偷看別組答案）。
       function memberPath(uid) { return /databases/$(database)/documents/rooms/$(code)/members/$(uid); }
       function inLobby() { return get(/databases/$(database)/documents/rooms/$(code)).data.status == 'lobby'; }
       function myGidAfter() {
@@ -73,7 +82,7 @@ service cloud.firestore {
 
       match /members/{uid} {
         allow read: if signedIn() && (request.auth.uid == uid || isHost(code));
-        allow create: if signedIn() && request.auth.uid == uid
+        allow create: if signedIn() && request.auth.uid == uid && inLobby()
           && request.resource.data.keys().hasOnly(['gid'])
           && request.resource.data.gid is string
           && uid in getAfter(/databases/$(database)/documents/rooms/$(code)/groups/$(request.resource.data.gid)).data.members;

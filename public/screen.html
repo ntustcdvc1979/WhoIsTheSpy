@@ -15,12 +15,9 @@
     <header class="screen-head">
       <div class="brand">
         <div class="seal">臥底</div>
-        <div>
-          <h1 class="brand-title">誰是臥底</h1>
-          <div class="brand-sub" id="roomLabel"></div>
-        </div>
+        <h1 class="brand-title">誰是臥底</h1>
       </div>
-      <div class="screen-credit" id="screenRoom"></div>
+      <div class="screen-credit" id="screenStatus"></div>
     </header>
 
     <main class="screen-main">
@@ -28,32 +25,20 @@
       <svg class="cloud-deco tl" viewBox="0 0 200 100" aria-hidden="true"><g fill="none" stroke="#f4ecd8" stroke-width="4" stroke-linecap="round"><path d="M20 80c-14 0-14-22 2-22 0-20 30-24 36-6 6-22 44-20 44 4 16-6 30 6 22 20H20z"/><path d="M52 66c0-8 12-8 12 0s-10 8-10 2"/><path d="M90 64c0-10 16-10 16 0s-12 10-12 2"/><path d="M130 80c40 0 60-10 60-30"/></g></svg>
       <svg class="cloud-deco br" viewBox="0 0 200 100" aria-hidden="true"><g fill="none" stroke="#f4ecd8" stroke-width="4" stroke-linecap="round"><path d="M20 80c-14 0-14-22 2-22 0-20 30-24 36-6 6-22 44-20 44 4 16-6 30 6 22 20H20z"/><path d="M52 66c0-8 12-8 12 0s-10 8-10 2"/><path d="M90 64c0-10 16-10 16 0s-12 10-12 2"/><path d="M130 80c40 0 60-10 60-30"/></g></svg>
 
-      <!-- 輸入房號 -->
-      <section data-view="code" hidden style="text-align:center">
-        <h2 style="font-size:3rem;letter-spacing:.3em">投影幕</h2>
-        <p style="color:var(--s-dim)">輸入已有的房號</p>
-        <div class="row" style="justify-content:center">
-          <input type="text" id="inpCode" class="big-code-input" inputmode="numeric" maxlength="4" placeholder="0000" style="width:260px">
-          <button class="btn red" id="btnEnter">開啟</button>
-        </div>
-        <p style="color:var(--s-dim);margin-top:4vh">還沒有房間？</p>
-        <button class="btn red" id="btnCreateRoom" style="font-size:1.3rem;padding:14px 32px">建立新房間</button>
-      </section>
-
       <section data-view="loading"><p style="color:var(--s-dim)">研墨中……</p></section>
 
-      <!-- 大廳 -->
-      <section data-view="lobby" hidden class="lobby">
+      <!-- 待命：玩家掃碼（客） -->
+      <section data-view="lobby" hidden class="lobby solo">
         <div class="qr-card">
           <div id="qr"></div>
-          <div class="muted" style="margin-top:8px">手機掃碼加入</div>
-          <div class="qr-code" id="qrCode"></div>
+          <div class="qr-glyph">客・掃碼加入</div>
+          <div class="qr-url" id="qrUrl"></div>
         </div>
         <div>
           <h2>誰是臥底</h2>
-          <div class="sub">掃碼建立組別・主持人開題後各組將收到答案</div>
-          <div class="sub" style="margin-top:2vh" id="lobbyCount"></div>
-          <div class="screen-groups" id="lobbyGroups"></div>
+          <div class="sub">手機掃描左側 QR Code</div>
+          <div class="sub">選擇房間・建立或加入組別</div>
+          <div class="sub" style="margin-top:4vh;color:var(--s-fg)">待命中・等待主持人開始</div>
         </div>
       </section>
 
@@ -78,16 +63,15 @@
 
       <!-- 揭曉 -->
       <section data-view="revealed" hidden class="reveal">
-        <div class="label" id="revealLabel">臥底是</div>
-        <div><span class="spy-name" id="spyName"></span></div>
-        <div class="words">
+        <div class="label" id="revealLabel">答案揭曉</div>
+        <div class="words" style="margin-top:4vh">
           <div class="w"><div class="k">平民詞</div><div class="v" id="wNormal"></div></div>
           <div class="w spyw"><div class="k">臥底詞</div><div class="v" id="wSpy"></div></div>
         </div>
+        <p class="sub" style="color:var(--s-dim);margin-top:4vh;letter-spacing:.2em">各組請看手機確認是否為臥底</p>
       </section>
     </main>
 
-    <div class="screen-groups" id="footGroups"></div>
     <div class="meander"></div>
   </div>
   <button class="btn small fs-btn" id="btnFs">全螢幕</button>

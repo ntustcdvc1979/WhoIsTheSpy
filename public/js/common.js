@@ -128,7 +128,7 @@ export function randomId(n = 10) {
 }
 
 /** 建立新房間（任何登入者都可以），回傳四位數房號 */
-export async function createRoom(uid) {
+export async function createRoom(uid, name) {
   const { doc, runTransaction, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   for (let i = 0; i < 15; i++) {
     const c = String(1000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 9000));
@@ -136,6 +136,7 @@ export async function createRoom(uid) {
     const ok = await runTransaction(db, async (tx) => {
       if ((await tx.get(ref)).exists()) return false;
       tx.set(ref, {
+        name: String(name || `房間 ${c}`).trim().slice(0, 12),
         createdBy: uid, status: "lobby", round: 0, duration: 180,
         roundId: null, startedAt: null, reveal: null, createdAt: serverTimestamp(),
       });

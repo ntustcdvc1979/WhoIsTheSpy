@@ -1,4 +1,4 @@
-import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, friendlyError, CN_NUM } from "./common.js";
+import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, friendlyError, createRoom, CN_NUM } from "./common.js";
 import {
   doc, getDoc, collection, onSnapshot, query, orderBy, writeBatch,
   serverTimestamp, arrayUnion, arrayRemove,
@@ -26,29 +26,73 @@ async function init() {
     const u = await ensureAnonymous();
     uid = u.uid;
   } catch (e) {
-    showView("code");
+    showRoomPicker();
     toast("登入失敗：" + friendlyError(e));
     return;
   }
   const c = roomFromUrl() || normalizeCode(localStorage.getItem(LS_ROOM));
   if (c && (await enterRoom(c, true))) return;
-  showView("code");
+  showRoomPicker();
 }
 
-/* ---------------- 房間 ---------------- */
-$("#btnEnter").onclick = async () => {
-  const c = normalizeCode($("#inpCode").value);
-  if (c.length !== 4) return toast("請輸入四位數房號");
-  if (!(await enterRoom(c))) toast("找不到這個房間");
-};
-$("#inpCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnEnter").click(); });
+/* ---------------- 選擇 / 建立房間 ---------------- */
+let roomsUnsub = null;
 
-$("#btnSwitchRoom").onclick = () => {
-  if (myGroup && room?.status !== "lobby") return toast("遊戲進行中，無法換房間");
+function showRoomPicker() {
+  showView("rooms");
+  $("#roomLabel").textContent = "選擇房間";
+  $("#btnSwitchRoom").hidden = true;
+  if (roomsUnsub || !uid) return;
+  roomsUnsub = onSnapshot(query(collection(db, "rooms"), orderBy("createdAt")), (s) => {
+    const rooms = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    $("#roomEmpty").hidden = rooms.length > 0;
+    $("#roomList").innerHTML = rooms.map((r) => `
+      <li class="group-item">
+        <span class="name">${esc(r.name || "房間")}</span>
+        ${r.status === "lobby" ? "" : '<span class="tag red">進行中</span>'}
+        <span class="grow"></span>
+        <button class="btn small" data-room="${r.id}">進入</button>
+      </li>`).join("");
+    $("#roomList").querySelectorAll("[data-room]").forEach((b) => {
+      b.onclick = async () => { if (!(await enterRoom(b.dataset.room))) toast("房間已不存在"); };
+    });
+  }, (e) => toast(friendlyError(e)));
+}
+
+function stopRoomPicker() {
+  roomsUnsub?.();
+  roomsUnsub = null;
+}
+
+$("#btnCreateRoom").onclick = async () => {
+  const name = $("#inpRoomName").value.trim();
+  if (!name) return toast("請輸入房間名稱");
+  const btn = $("#btnCreateRoom");
+  btn.disabled = true;
+  try {
+    const c = await createRoom(uid, name);
+    $("#inpRoomName").value = "";
+    await enterRoom(c);
+  } catch (e) { toast(friendlyError(e)); }
+  finally { btn.disabled = false; }
+};
+$("#inpRoomName").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnCreateRoom").click(); });
+
+$("#btnSwitchRoom").onclick = async () => {
+  if (room && room.status !== "lobby") return toast("遊戲進行中，無法換房間");
+  if (myGroup && !confirm("換房間會離開目前的組別，確定嗎？")) return;
+  try {
+    if (myGroup) {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "rooms", code, "members", uid));
+      removeFromOldGroups(batch, null);
+      await batch.commit();
+    }
+  } catch (e) { return toast(friendlyError(e)); }
   leaveRoom();
   localStorage.removeItem(LS_ROOM);
   setRoomInUrl(null);
-  showView("code");
+  showRoomPicker();
 };
 
 async function enterRoom(c, silent = false) {
@@ -60,15 +104,23 @@ async function enterRoom(c, silent = false) {
     return false;
   }
   leaveRoom();
+  stopRoomPicker();
   code = c;
   localStorage.setItem(LS_ROOM, c);
   setRoomInUrl(c);
-  $("#roomLabel").textContent = `房號 ${c}`;
   $("#btnSwitchRoom").hidden = false;
 
   unsubs.push(onSnapshot(doc(db, "rooms", c), (s) => {
     room = s.data() || null;
-    if (!room) { toast("房間已關閉"); return; }
+    if (!room) {
+      toast("房間已被刪除");
+      leaveRoom();
+      localStorage.removeItem(LS_ROOM);
+      setRoomInUrl(null);
+      showRoomPicker();
+      return;
+    }
+    $("#roomLabel").textContent = room.name || "房間";
     if (room.roundId !== lastRoundId) { covered = true; lastRoundId = room.roundId; }
     render();
   }, (e) => toast(friendlyError(e))));

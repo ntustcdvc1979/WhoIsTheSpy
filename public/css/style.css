@@ -255,7 +255,7 @@ label { font-size: .9rem; color: var(--ink-soft); }
 .lobby { display: grid; grid-template-columns: auto 1fr; gap: 5vw; align-items: center; width: 100%; max-width: 1500px; }
 .qr-card { background: var(--paper); color: var(--ink); padding: 20px; border-radius: 6px; text-align: center; }
 .qr-card #qr { display: grid; place-items: center; }
-.qr-card #qr img, .qr-card #qr canvas { width: min(30vh, 320px) !important; height: auto !important; }
+.qr-card #qr img, .qr-card #qr canvas { width: min(46vh, 460px) !important; height: auto !important; }
 .qr-code { font-size: clamp(2rem, 5vw, 3.6rem); letter-spacing: .35em; font-family: var(--font-brush); margin-top: 8px; color: var(--cinnabar); }
 .lobby h2 { font-size: clamp(2.4rem, 6vw, 5rem); letter-spacing: .3em; margin-bottom: 1vh; }
 .lobby .sub { color: var(--s-dim); letter-spacing: .2em; font-size: clamp(1rem, 1.8vw, 1.5rem); }
@@ -370,3 +370,9 @@ label { font-size: .9rem; color: var(--ink-soft); }
 @keyframes breathe { 50% { transform: rotate(-4deg) scale(1.06); } }
 @keyframes dot { 0%, 80%, 100% { opacity: .2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-6px); } }
 .q-preview .q-no { white-space: nowrap; font-size: 1rem; }
+.group-item.selected { background: var(--porcelain-light); border-radius: 4px; padding-left: 8px; }
+
+/* 投影幕待命：QR 置中大圖 */
+.lobby.solo { grid-template-columns: auto auto; justify-content: center; gap: 6vw; }
+.qr-card .qr-glyph { font-size: clamp(1.4rem, 2.6vw, 2.2rem); letter-spacing: .4em; color: var(--porcelain); margin-top: 8px; }
+.qr-card .qr-url { font-size: .9rem; color: var(--ink-faint); word-break: break-all; max-width: min(34vh, 360px); margin: 4px auto 0; }

@@ -25,13 +25,19 @@
   <main class="wrap">
     <section data-view="loading"><p class="muted" style="text-align:center">研墨中……</p></section>
 
-    <!-- 輸入房號 -->
-    <section data-view="code" hidden>
-      <div class="card" style="text-align:center">
-        <div class="card-title" style="justify-content:center">輸入房號</div>
-        <p class="muted">房號顯示在投影幕上，也可以直接掃 QR Code</p>
-        <input type="text" id="inpCode" class="big-code-input" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
-        <button class="btn red block" id="btnEnter" style="margin-top:14px">進入</button>
+    <!-- 選擇房間 -->
+    <section data-view="rooms" hidden>
+      <div class="card">
+        <div class="card-title">選擇房間</div>
+        <ul class="group-list join-list" id="roomList"></ul>
+        <p class="muted" id="roomEmpty">還沒有房間，建立第一間吧！</p>
+      </div>
+      <div class="card">
+        <div class="card-title">建立新房間</div>
+        <div class="row">
+          <input type="text" id="inpRoomName" class="grow" maxlength="12" placeholder="例：第一桌" style="width:auto">
+          <button class="btn red" id="btnCreateRoom">建立</button>
+        </div>
       </div>
     </section>
 
