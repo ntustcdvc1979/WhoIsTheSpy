@@ -1,41 +1,46 @@
+// 玩家手機：輸入大名 → 找到自己那一桌加入 → 待命 → 開始後看到自己的詞 → 揭曉
 import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, friendlyError, createRoom, createNameBook, CN_NUM } from "./common.js";
 import {
-  doc, getDoc, setDoc, collection, onSnapshot, query, orderBy, writeBatch,
-  serverTimestamp, arrayUnion, arrayRemove,
+  doc, getDoc, setDoc, collection, onSnapshot, query, orderBy, writeBatch, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const LS_ROOM = "wits.playerRoom";
 const LS_NAME = "wits.playerName";
 
 let uid = null;
-let code = null;
+let myName = "";
+let code = null;        // 目前這一桌的 id
 let room = null;
-let groups = [];
-let myGroup = null;
+let members = [];       // 同桌玩家 [{ id(uid), eliminated, joinedAt }]
+let me = null;          // 自己在這一桌的資料
 let word = null;
 let unsubs = [];
 let wordUnsub = null;
-let wordGroupId = null;
 let wordRetry = null;
 let covered = true;
 let lastRoundId = null;
-let myName = "";
+let joinedOnce = false; // 已確認自己在桌上（用來偵測被主持人移出）
 const names = createNameBook(() => render());
 
 init();
 
 async function init() {
   try {
-    const u = await ensureAnonymous();
-    uid = u.uid;
+    uid = (await ensureAnonymous()).uid;
   } catch (e) {
-    showRoomPicker();
+    showView("rooms");
     toast("登入失敗：" + friendlyError(e));
     return;
   }
   await ensureName();
+  // 回到上次那一桌（若仍在桌上）
   const c = roomFromUrl() || normalizeCode(localStorage.getItem(LS_ROOM));
-  if (c && (await enterRoom(c, true))) return;
+  if (c) {
+    try {
+      const m = await getDoc(doc(db, "rooms", c, "members", uid));
+      if (m.exists()) { openTable(c); return; }
+    } catch { /* 忽略 */ }
+  }
   showRoomPicker();
 }
 
@@ -66,7 +71,7 @@ function askName() {
       if (n.length > 12) return toast("名字最多 12 個字");
       $("#btnSaveName").disabled = true;
       try {
-        await setDoc(doc(db, "players", uid), { name: n, updatedAt: serverTimestamp() });
+        await setDoc(doc(db, "players", uid), { name: n, updatedAt: serverTimestamp() }, { merge: true });
         myName = n;
         localStorage.setItem(LS_NAME, n);
         showMyName();
@@ -87,23 +92,22 @@ function showMyName() {
 
 $("#btnRename").onclick = async () => {
   await askName();
-  if (room) render();
+  render();
 };
 
-/* ---------------- 選擇 / 建立桌 ---------------- */
+/* ---------------- 找桌 / 建桌 ---------------- */
 let roomsUnsub = null;
 let pickerRooms = [];
 
 function showRoomPicker() {
   showView("rooms");
-  $("#roomLabel").textContent = "選擇你們這一桌";
+  $("#roomLabel").textContent = "找到你們這一桌";
   $("#btnSwitchRoom").hidden = true;
   if (roomsUnsub || !uid) return;
   roomsUnsub = onSnapshot(query(collection(db, "rooms"), orderBy("createdAt")), (s) => {
-    const rooms = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-    pickerRooms = rooms;
-    $("#roomEmpty").hidden = rooms.length > 0;
-    $("#roomList").innerHTML = rooms.map((r) => `
+    pickerRooms = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    $("#roomEmpty").hidden = pickerRooms.length > 0;
+    $("#roomList").innerHTML = pickerRooms.map((r) => `
       <li class="group-item">
         <span class="name">${esc(r.name || "桌")}</span>
         ${r.status === "lobby" ? "" : '<span class="tag red">進行中</span>'}
@@ -111,7 +115,7 @@ function showRoomPicker() {
         <button class="btn small" data-room="${r.id}">加入</button>
       </li>`).join("");
     $("#roomList").querySelectorAll("[data-room]").forEach((b) => {
-      b.onclick = async () => { if (!(await enterRoom(b.dataset.room))) toast("這一桌已不存在"); };
+      b.onclick = () => joinTable(b.dataset.room);
     });
   }, (e) => toast(friendlyError(e)));
 }
@@ -126,7 +130,7 @@ $("#btnCreateRoom").onclick = async () => {
   if (!name) return toast("請輸入桌名");
   const same = pickerRooms.find((r) => r.name === name);
   if (same) {
-    if (confirm(`已經有「${name}」了，要直接加入嗎？`)) await enterRoom(same.id);
+    if (confirm(`已經有「${name}」了，要直接加入嗎？`)) await joinTable(same.id);
     return;
   }
   const btn = $("#btnCreateRoom");
@@ -134,204 +138,153 @@ $("#btnCreateRoom").onclick = async () => {
   try {
     const c = await createRoom(uid, name);
     $("#inpRoomName").value = "";
-    await enterRoom(c);
+    await joinTable(c);
   } catch (e) { toast(friendlyError(e)); }
   finally { btn.disabled = false; }
 };
 $("#inpRoomName").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnCreateRoom").click(); });
 
-$("#btnSwitchRoom").onclick = async () => {
-  if (room && room.status !== "lobby") return toast("遊戲進行中，無法換桌");
-  if (myGroup && !confirm("換桌會離開目前的組別，確定嗎？")) return;
+/** 加入一桌：同一批次更新「我在哪一桌」+ 在桌上登記 + 離開舊桌（規則會檢查一致） */
+async function joinTable(c) {
+  const prev = code || normalizeCode(localStorage.getItem(LS_ROOM)) || null;
   try {
-    if (myGroup) {
-      const batch = writeBatch(db);
-      batch.delete(doc(db, "rooms", code, "members", uid));
-      removeFromOldGroups(batch, null);
-      await batch.commit();
-    }
-  } catch (e) { return toast(friendlyError(e)); }
-  leaveRoom();
-  localStorage.removeItem(LS_ROOM);
-  setRoomInUrl(null);
-  showRoomPicker();
-};
-
-async function enterRoom(c, silent = false) {
-  try {
-    const s = await getDoc(doc(db, "rooms", c));
-    if (!s.exists()) return false;
+    const batch = writeBatch(db);
+    batch.set(doc(db, "players", uid), { name: myName, table: c, updatedAt: serverTimestamp() }, { merge: true });
+    batch.set(doc(db, "rooms", c, "members", uid), { joinedAt: serverTimestamp(), eliminated: false });
+    if (prev && prev !== c) batch.delete(doc(db, "rooms", prev, "members", uid));
+    await batch.commit();
+    openTable(c);
   } catch (e) {
-    if (!silent) toast(friendlyError(e));
-    return false;
+    const r = pickerRooms.find((x) => x.id === c);
+    if (String(e?.code).includes("permission-denied") && r && r.status !== "lobby") {
+      toast("這一桌正在遊戲中，請等主持人回到待命後再加入");
+    } else toast(friendlyError(e));
   }
-  leaveRoom();
+}
+
+/* ---------------- 在桌上 ---------------- */
+function openTable(c) {
+  closeTable();
   stopRoomPicker();
   code = c;
+  joinedOnce = false;
   localStorage.setItem(LS_ROOM, c);
   setRoomInUrl(c);
   $("#btnSwitchRoom").hidden = false;
+  showView("play");
 
   unsubs.push(onSnapshot(doc(db, "rooms", c), (s) => {
     room = s.data() || null;
-    if (!room) {
-      toast("這一桌已被刪除");
-      leaveRoom();
-      localStorage.removeItem(LS_ROOM);
-      setRoomInUrl(null);
-      showRoomPicker();
-      return;
-    }
+    if (!room) { backToPicker("這一桌已被刪除"); return; }
     $("#roomLabel").textContent = room.name || "桌";
     if (room.roundId !== lastRoundId) { covered = true; lastRoundId = room.roundId; }
     render();
   }, (e) => toast(friendlyError(e))));
 
-  unsubs.push(onSnapshot(query(collection(db, "rooms", c, "groups"), orderBy("createdAt")), (s) => {
-    groups = s.docs.map((d) => ({ id: d.id, ...d.data() }));
-    myGroup = groups.find((g) => (g.members || []).includes(uid)) || null;
-    names.ensure(groups.flatMap((g) => g.members || []));
-    syncWordListener();
+  unsubs.push(onSnapshot(query(collection(db, "rooms", c, "members"), orderBy("joinedAt")), (s) => {
+    members = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+    me = members.find((m) => m.id === uid) || null;
+    if (me) joinedOnce = true;
+    else if (joinedOnce) { backToPicker("你已被主持人移出這一桌"); return; }
+    names.ensure(members.map((m) => m.id));
     render();
   }, (e) => toast(friendlyError(e))));
-  return true;
+
+  listenWord();
 }
 
-function leaveRoom() {
+function listenWord() {
+  const c = code;
+  wordUnsub = onSnapshot(doc(db, "rooms", c, "words", uid), (s) => {
+    word = s.exists() ? s.data() : null;
+    render();
+  }, () => {
+    // 剛加入時伺服器可能還沒更新「我在哪一桌」，稍後重試
+    word = null;
+    wordUnsub = null;
+    wordRetry = setTimeout(() => { if (code === c) listenWord(); }, 1500);
+  });
+}
+
+function closeTable() {
   unsubs.forEach((f) => f());
   unsubs = [];
-  stopWordListener();
-  code = room = myGroup = null;
-  groups = [];
-}
-
-/* ---------------- 答案監聽（只有組員讀得到自己組的答案） ---------------- */
-function stopWordListener() {
-  if (wordUnsub) wordUnsub();
+  wordUnsub?.();
   wordUnsub = null;
-  wordGroupId = null;
-  word = null;
   clearTimeout(wordRetry);
+  code = room = me = word = null;
+  members = [];
 }
 
-function syncWordListener() {
-  const gid = myGroup?.id || null;
-  if (gid === wordGroupId) return;
-  stopWordListener();
-  if (!gid) return;
-  wordGroupId = gid;
-  const listen = () => {
-    wordUnsub = onSnapshot(doc(db, "rooms", code, "words", gid), (s) => {
-      word = s.exists() ? s.data() : null;
-      render();
-    }, () => {
-      // 剛加入時伺服器可能尚未更新成員名單，稍後重試
-      word = null;
-      wordUnsub = null;
-      wordRetry = setTimeout(() => { if (wordGroupId === gid) listen(); }, 1500);
-    });
-  };
-  listen();
+function backToPicker(msg) {
+  if (msg) toast(msg);
+  closeTable();
+  localStorage.removeItem(LS_ROOM);
+  setRoomInUrl(null);
+  showRoomPicker();
 }
 
-/* ---------------- 組別 ---------------- */
-$("#btnCreateGroup").onclick = async () => {
-  const name = $("#inpGroup").value.trim();
-  if (!name) return toast("請輸入組名");
-  if (name.length > 12) return toast("組名最多 12 個字");
-  if (groups.some((g) => g.name === name)) return toast("這個組名已經有人用了");
-  const btn = $("#btnCreateGroup");
-  btn.disabled = true;
-  try {
-    // 同一批次：建立組別 + 更新「我屬於哪一組」指標 + 離開舊組（規則會檢查三者一致）
-    const ref = doc(collection(db, "rooms", code, "groups"));
-    const batch = writeBatch(db);
-    batch.set(ref, { name, members: [uid], eliminated: false, createdBy: uid, createdAt: serverTimestamp() });
-    batch.set(doc(db, "rooms", code, "members", uid), { gid: ref.id });
-    removeFromOldGroups(batch, ref.id);
-    await batch.commit();
-    $("#inpGroup").value = "";
-  } catch (e) { toast(groupError(e)); }
-  finally { btn.disabled = false; }
+async function leaveTable() {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "rooms", code, "members", uid));
+  batch.set(doc(db, "players", uid), { name: myName, table: null, updatedAt: serverTimestamp() }, { merge: true });
+  await batch.commit();
+}
+
+$("#btnSwitchRoom").onclick = async () => {
+  if (room && room.status !== "lobby") return toast("遊戲進行中，無法換桌");
+  if (!confirm("確定要離開這一桌，換到別桌嗎？")) return;
+  try { await leaveTable(); } catch (e) { return toast(friendlyError(e)); }
+  backToPicker();
 };
-$("#inpGroup").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btnCreateGroup").click(); });
-
-async function joinGroup(gid) {
-  try {
-    const batch = writeBatch(db);
-    batch.set(doc(db, "rooms", code, "members", uid), { gid });
-    batch.update(doc(db, "rooms", code, "groups", gid), { members: arrayUnion(uid) });
-    removeFromOldGroups(batch, gid);
-    await batch.commit();
-  } catch (e) { toast(groupError(e)); }
-}
-
-/** 把自己從其他組的名單移除（理論上最多一組） */
-function removeFromOldGroups(batch, exceptGid) {
-  groups.filter((g) => g.id !== exceptGid && (g.members || []).includes(uid))
-    .forEach((g) => batch.update(doc(db, "rooms", code, "groups", g.id), { members: arrayRemove(uid) }));
-}
-
-function groupError(e) {
-  if (String(e?.code).includes("permission-denied") && room?.status !== "lobby") return "遊戲進行中無法換組，請等主持人回到大廳";
-  return friendlyError(e);
-}
 
 $("#btnLeave").onclick = async () => {
   if (room?.status !== "lobby") return toast("遊戲進行中，不能離開");
-  if (!confirm("確定要離開這一組嗎？")) return;
-  try {
-    const batch = writeBatch(db);
-    batch.delete(doc(db, "rooms", code, "members", uid));
-    removeFromOldGroups(batch, null);
-    await batch.commit();
-  } catch (e) { toast(groupError(e)); }
+  if (!confirm("確定要離開這一桌嗎？")) return;
+  try { await leaveTable(); } catch (e) { return toast(friendlyError(e)); }
+  backToPicker();
 };
 
 /* ---------------- 畫面 ---------------- */
 $("#scroll").onclick = () => { covered = !covered; renderWord(); };
 
 function render() {
-  if (!room) return;
+  if (!room || !code) return;
   if (!$("[data-view=name]").hidden) return; // 正在輸入名字
-  if (!myGroup) {
-    showView("group");
-    renderJoinList();
-    return;
-  }
   showView("play");
-  $("#myGroupName").textContent = myGroup.name;
-  $("#myGroupMeta").textContent = `組員（${(myGroup.members || []).length}）：${names.list(myGroup.members)}`;
+  $("#myGroupName").textContent = room.name || "桌";
+  $("#myGroupMeta").textContent = `同桌（${members.length}）：${names.list(members.map((m) => m.id))}`;
   $("#btnLeave").hidden = room.status !== "lobby";
 
   const st = room.status;
+  const out = !!me?.eliminated;
   const roundName = `第${CN_NUM[room.round] || ""}輪`;
   const hasWord = word && word.roundId && word.roundId === room.roundId;
 
-  // 只要主持人沒按「開始遊戲」，就是待命畫面；出局組另外顯示出局
-  const standby = !myGroup.eliminated && (st === "lobby" || (st === "playing" && !hasWord));
+  // 只要主持人沒按開始，就是待命畫面
+  const standby = !out && (st === "lobby" || (st === "playing" && !hasWord));
   $("#standbyBox").hidden = !standby;
-  $("#outBox").hidden = !myGroup.eliminated || st === "revealed";
+  $("#outBox").hidden = !out || st === "revealed";
   $("#wordBox").hidden = !(st === "playing" && hasWord);
   $("#resultBox").hidden = st !== "revealed";
-  $("#statusPill").hidden = standby || (myGroup.eliminated && st !== "revealed");
+  $("#statusPill").hidden = standby || (out && st !== "revealed");
 
   if (st === "lobby") {
     $("#standbyTitle").textContent = "待命中";
-    $("#standbyText").textContent = "主持人尚未開始遊戲，請稍候";
+    $("#standbyText").textContent = "已加入這一桌，等待主持人開始遊戲";
   } else if (st === "playing") {
-    $("#standbyTitle").textContent = "發送答案中";
-    $("#standbyText").textContent = `${roundName}・正在接收你們的答案`;
-    $("#statusPill").textContent = `${roundName}・你們的答案是`;
+    $("#standbyTitle").textContent = "接收你的詞中";
+    $("#standbyText").textContent = `${roundName}進行中・若一直沒出現，代表你是開始後才加入的，請等下一輪`;
+    $("#statusPill").textContent = `${roundName}・你的詞是`;
   } else if (st === "revealed") {
     $("#statusPill").textContent = `${roundName}・揭曉`;
     const r = room.reveal || {};
-    const iAmSpy = r.spyGroupId === myGroup.id;
+    const iAmSpy = r.spyUid === uid;
     const v = $("#verdict");
     v.className = "verdict " + (iAmSpy ? "spy" : "civ");
-    v.textContent = iAmSpy ? "你們就是臥底！" : "你們是平民";
+    v.textContent = iAmSpy ? "你就是臥底！" : "你是平民";
     $("#resultWords").innerHTML = `
-      <p class="muted" style="margin:6px 0 2px">臥底組：<b style="color:var(--cinnabar)">${esc(r.spyGroupName || "")}</b></p>
+      <p class="muted" style="margin:6px 0 2px">這一桌的臥底：<b style="color:var(--cinnabar)">${esc(r.spyName || "")}</b></p>
       <p style="margin:2px 0">平民詞：<b>${esc(r.normal || "")}</b>　臥底詞：<b style="color:var(--cinnabar)">${esc(r.spy || "")}</b></p>`;
   }
   renderWord();
@@ -343,19 +296,4 @@ function renderWord() {
   $("#scroll").classList.toggle("covered", covered);
   $("#coverLabel").hidden = !covered;
   $("#wordHint").textContent = covered ? "" : "再點一下蓋起來";
-}
-
-function renderJoinList() {
-  const list = $("#joinList");
-  $("#joinEmpty").hidden = groups.length > 0;
-  list.innerHTML = groups.map((g) => `
-    <li class="group-item ${g.eliminated ? "out" : ""}">
-      <span class="grow" style="min-width:0">
-        <span class="name">${esc(g.name)}</span>
-        <span class="muted">${(g.members || []).length} 人</span>
-        <span class="member-names">${esc(names.list(g.members))}</span>
-      </span>
-      <button class="btn small" data-id="${g.id}">加入</button>
-    </li>`).join("");
-  list.querySelectorAll("button").forEach((b) => { b.onclick = () => joinGroup(b.dataset.id); });
 }

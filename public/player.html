@@ -33,7 +33,7 @@
       <div class="card" style="text-align:center">
         <div class="seal big" style="margin:0 auto 14px">客</div>
         <div class="card-title" style="justify-content:center">請輸入你的大名</div>
-        <p class="muted" style="margin-top:-6px">組員會看到這個名字</p>
+        <p class="muted" style="margin-top:-6px">同桌的人會看到這個名字</p>
         <input type="text" id="inpMyName" class="big-name-input" maxlength="12" placeholder="例：王小明" autocomplete="nickname">
         <button class="btn red block" id="btnSaveName" style="margin-top:14px">確定</button>
       </div>
@@ -57,26 +57,10 @@
       </div>
     </section>
 
-    <!-- 建立 / 加入組別 -->
-    <section data-view="group" hidden>
-      <div class="card">
-        <div class="card-title">建立新組別</div>
-        <div class="row">
-          <input type="text" id="inpGroup" class="grow" maxlength="12" placeholder="例：七里香隊" style="width:auto">
-          <button class="btn red" id="btnCreateGroup">建立</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">或加入已有的組別</div>
-        <ul class="group-list join-list" id="joinList"></ul>
-        <p class="muted" id="joinEmpty">還沒有人建立組別，當第一組吧！</p>
-      </div>
-    </section>
-
-    <!-- 已在組內 -->
+    <!-- 已加入一桌 -->
     <section data-view="play" hidden>
       <div class="card" style="text-align:center;padding:14px">
-        <div class="muted">你的組別</div>
+        <div class="muted">你在</div>
         <div style="font-size:1.7rem;font-weight:700;letter-spacing:.15em" id="myGroupName"></div>
         <div class="muted" id="myGroupMeta"></div>
       </div>
@@ -101,7 +85,7 @@
             </div>
             <div class="cover-label" id="coverLabel">點一下翻開</div>
           </div>
-          <p class="muted" style="text-align:center">不要讓別組看到喔！再點一下可以蓋起來。</p>
+          <p class="muted" style="text-align:center">不要讓別人看到喔！再點一下可以蓋起來。</p>
         </div>
 
         <!-- 揭曉 -->
@@ -113,12 +97,12 @@
 
         <div class="card result-box" id="outBox" hidden>
           <div class="seal big" style="margin:0 auto 10px">出局</div>
-          <div class="muted">本組已被淘汰，可以留下來看熱鬧</div>
+          <div class="muted">你已被淘汰，可以留下來看熱鬧</div>
         </div>
       </div>
 
       <div style="text-align:center;margin-top:24px">
-        <button class="btn ghost small" id="btnLeave">離開這一組</button>
+        <button class="btn ghost small" id="btnLeave">離開這一桌</button>
       </div>
     </section>
   </main>

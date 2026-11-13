@@ -49,10 +49,10 @@ function render() {
         <button class="btn ghost small" data-swap="${i}" title="交換平民詞與臥底詞">⇄ 交換</button>
       </div>
       <div class="q-fields">
-        <label><span>平民詞 <span class="muted">（多數組）</span></span>
+        <label><span>平民詞 <span class="muted">（多數人）</span></span>
           <input type="text" maxlength="20" data-q="${i}" data-k="normal" value="${esc(q.normal)}" placeholder="例：珍珠奶茶">
         </label>
-        <label><span>臥底詞 <span class="muted">（只有一組）</span></span>
+        <label><span>臥底詞 <span class="muted">（每桌一人）</span></span>
           <input type="text" maxlength="20" data-q="${i}" data-k="spy" value="${esc(q.spy)}" placeholder="例：椰果奶茶">
         </label>
       </div>

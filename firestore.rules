@@ -34,15 +34,28 @@ service cloud.firestore {
         && request.resource.data.list.size() <= 20;
     }
 
-    // 玩家名字：所有登入者可讀（顯示組員名單），只有本人可寫
-    match /players/{uid} {
-      allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'updatedAt'])
+    // 玩家：名字 + 目前所在的桌（table）。所有登入者可讀（顯示名單），只有本人可寫。
+    // 換桌只能在「原本的桌」與「新的桌」都在待命時進行，避免遊戲中換桌偷看別桌答案。
+    function tableIdle(t) {
+      return t == null
+        || !exists(/databases/$(database)/documents/rooms/$(t))
+        || get(/databases/$(database)/documents/rooms/$(t)).data.status == 'lobby';
+    }
+    function validPlayer() {
+      return request.resource.data.keys().hasOnly(['name', 'updatedAt', 'table'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 12
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (request.resource.data.get('table', null) == null || request.resource.data.table is string);
+    }
+    match /players/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == uid && validPlayer()
+        && tableIdle(request.resource.data.get('table', null));
+      allow update: if signedIn() && request.auth.uid == uid && validPlayer()
+        && (request.resource.data.get('table', null) == resource.data.get('table', null)
+            || (tableIdle(resource.data.get('table', null)) && tableIdle(request.resource.data.get('table', null))));
     }
 
     // 全場狀態（投影幕倒數用）：所有人可讀，只有白名單主持人可寫
@@ -81,72 +94,25 @@ service cloud.firestore {
       // 本輪臥底：只有主持人
       match /private/{docId} { allow read, write: if isHost(code); }
 
-      // 每位玩家「目前所屬組別」的唯一指標，用來保證一個人同時只屬於一組。
-      // 讀答案以這裡為準，所以就算有人把自己硬塞進好幾組的名單，也只讀得到一組的答案。
-      // 加入與換組都只能在待命狀態（遊戲進行中不能加入或換組偷看別組答案）。
-      function memberPath(uid) { return /databases/$(database)/documents/rooms/$(code)/members/$(uid); }
       function inLobby() { return get(/databases/$(database)/documents/rooms/$(code)).data.status == 'lobby'; }
-      function myGidAfter() {
-        return existsAfter(memberPath(request.auth.uid))
-          ? getAfter(memberPath(request.auth.uid)).data.gid : null;
-      }
+      function myTable() { return get(/databases/$(database)/documents/players/$(request.auth.uid)).data.get('table', null); }
+      function myTableAfter() { return getAfter(/databases/$(database)/documents/players/$(request.auth.uid)).data.get('table', null); }
 
+      // 桌上的玩家：加入 / 離開只能在待命狀態，且必須和 players/{uid}.table 一致（一人只在一桌）
       match /members/{uid} {
-        allow read: if signedIn() && (request.auth.uid == uid || isHost(code));
+        allow read: if signedIn();
         allow create: if signedIn() && request.auth.uid == uid && inLobby()
-          && request.resource.data.keys().hasOnly(['gid'])
-          && request.resource.data.gid is string
-          && uid in getAfter(/databases/$(database)/documents/rooms/$(code)/groups/$(request.resource.data.gid)).data.members;
-        allow update: if signedIn() && request.auth.uid == uid && inLobby()
-          && request.resource.data.keys().hasOnly(['gid'])
-          && request.resource.data.gid is string
-          && uid in getAfter(/databases/$(database)/documents/rooms/$(code)/groups/$(request.resource.data.gid)).data.members;
+          && myTableAfter() == code
+          && request.resource.data.keys().hasOnly(['joinedAt', 'eliminated'])
+          && request.resource.data.joinedAt == request.time
+          && request.resource.data.eliminated == false;
+        allow update: if isHost(code);   // 淘汰 / 復活
         allow delete: if isHost(code) || (signedIn() && request.auth.uid == uid && inLobby());
       }
 
-      // 組別：玩家可建立、加入 / 離開（只能動自己的 uid，且要和 members 指標一致）；主持人可改全部
-      match /groups/{gid} {
-        allow read: if signedIn();
-
-        allow create: if signedIn()
-          && request.resource.data.keys().hasOnly(['name', 'members', 'eliminated', 'createdBy', 'createdAt'])
-          && request.resource.data.name is string
-          && request.resource.data.name.size() > 0
-          && request.resource.data.name.size() <= 12
-          && request.resource.data.members == [request.auth.uid]
-          && request.resource.data.eliminated == false
-          && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.createdAt == request.time
-          && myGidAfter() == gid;
-
-        allow update: if isHost(code) || (
-          signedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
-          && request.resource.data.members.size() <= 50
-          && (
-            // 加入：新增的只有自己，且指標指向這一組
-            (request.resource.data.members.toSet().difference(resource.data.members.toSet()).hasOnly([request.auth.uid])
-              && request.resource.data.members.toSet().difference(resource.data.members.toSet()).size() == 1
-              && resource.data.members.toSet().difference(request.resource.data.members.toSet()).size() == 0
-              && myGidAfter() == gid)
-            ||
-            // 離開：移除的只有自己，且指標已不指向這一組
-            (resource.data.members.toSet().difference(request.resource.data.members.toSet()).hasOnly([request.auth.uid])
-              && resource.data.members.toSet().difference(request.resource.data.members.toSet()).size() == 1
-              && request.resource.data.members.toSet().difference(resource.data.members.toSet()).size() == 0
-              && myGidAfter() != gid)
-          )
-        );
-
-        allow delete: if isHost(code);
-      }
-
-      // 各組答案：只有主持人寫；只有「目前屬於該組」的玩家與主持人讀
-      match /words/{gid} {
-        allow read: if isHost(code) || (
-          signedIn()
-          && get(memberPath(request.auth.uid)).data.gid == gid
-        );
+      // 每位玩家自己的答案：只有本人（且目前在這一桌）與主持人讀得到
+      match /words/{uid} {
+        allow read: if isHost(code) || (signedIn() && request.auth.uid == uid && myTable() == code);
         allow write: if isHost(code);
       }
     }
