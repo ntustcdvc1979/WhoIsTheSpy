@@ -19,11 +19,25 @@
         <div class="brand-sub" id="roomLabel">分組推理遊戲</div>
       </div>
     </div>
-    <button class="btn ghost small" id="btnSwitchRoom" hidden>換桌</button>
+    <div class="row" style="gap:6px;justify-content:flex-end">
+      <button class="btn ghost small" id="btnRename" hidden title="修改名字"></button>
+      <button class="btn ghost small" id="btnSwitchRoom" hidden>換桌</button>
+    </div>
   </header>
 
   <main class="wrap">
     <section data-view="loading"><p class="muted" style="text-align:center">研墨中……</p></section>
+
+    <!-- 輸入大名 -->
+    <section data-view="name" hidden>
+      <div class="card" style="text-align:center">
+        <div class="seal big" style="margin:0 auto 14px">客</div>
+        <div class="card-title" style="justify-content:center">請輸入你的大名</div>
+        <p class="muted" style="margin-top:-6px">組員會看到這個名字</p>
+        <input type="text" id="inpMyName" class="big-name-input" maxlength="12" placeholder="例：王小明" autocomplete="nickname">
+        <button class="btn red block" id="btnSaveName" style="margin-top:14px">確定</button>
+      </div>
+    </section>
 
     <!-- 選擇桌 -->
     <section data-view="rooms" hidden>

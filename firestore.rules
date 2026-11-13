@@ -34,6 +34,17 @@ service cloud.firestore {
         && request.resource.data.list.size() <= 20;
     }
 
+    // 玩家名字：所有登入者可讀（顯示組員名單），只有本人可寫
+    match /players/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 12
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // 全場狀態（投影幕倒數用）：所有人可讀，只有白名單主持人可寫
     match /game/{docId} {
       allow read: if signedIn();

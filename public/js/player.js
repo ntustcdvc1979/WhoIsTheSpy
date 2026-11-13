@@ -1,10 +1,11 @@
-import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, friendlyError, createRoom, CN_NUM } from "./common.js";
+import { db, $, esc, toast, showView, ensureAnonymous, normalizeCode, roomFromUrl, setRoomInUrl, friendlyError, createRoom, createNameBook, CN_NUM } from "./common.js";
 import {
-  doc, getDoc, collection, onSnapshot, query, orderBy, writeBatch,
+  doc, getDoc, setDoc, collection, onSnapshot, query, orderBy, writeBatch,
   serverTimestamp, arrayUnion, arrayRemove,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const LS_ROOM = "wits.playerRoom";
+const LS_NAME = "wits.playerName";
 
 let uid = null;
 let code = null;
@@ -18,6 +19,8 @@ let wordGroupId = null;
 let wordRetry = null;
 let covered = true;
 let lastRoundId = null;
+let myName = "";
+const names = createNameBook(() => render());
 
 init();
 
@@ -30,10 +33,62 @@ async function init() {
     toast("登入失敗：" + friendlyError(e));
     return;
   }
+  await ensureName();
   const c = roomFromUrl() || normalizeCode(localStorage.getItem(LS_ROOM));
   if (c && (await enterRoom(c, true))) return;
   showRoomPicker();
 }
+
+/* ---------------- 大名 ---------------- */
+async function ensureName() {
+  myName = (localStorage.getItem(LS_NAME) || "").trim();
+  if (!myName) {
+    try { myName = (await getDoc(doc(db, "players", uid))).data()?.name || ""; } catch { /* 忽略 */ }
+  }
+  if (myName) {
+    localStorage.setItem(LS_NAME, myName);
+    showMyName();
+    return;
+  }
+  await askName();
+}
+
+/** 顯示輸入大名畫面，存好後 resolve */
+function askName() {
+  const prevView = [...document.querySelectorAll("[data-view]")].find((el) => !el.hidden)?.dataset.view;
+  showView("name");
+  $("#inpMyName").value = myName;
+  setTimeout(() => $("#inpMyName").focus(), 50);
+  return new Promise((resolve) => {
+    const save = async () => {
+      const n = $("#inpMyName").value.trim();
+      if (!n) return toast("請輸入你的大名");
+      if (n.length > 12) return toast("名字最多 12 個字");
+      $("#btnSaveName").disabled = true;
+      try {
+        await setDoc(doc(db, "players", uid), { name: n, updatedAt: serverTimestamp() });
+        myName = n;
+        localStorage.setItem(LS_NAME, n);
+        showMyName();
+        if (prevView && prevView !== "loading" && prevView !== "name") showView(prevView);
+        resolve();
+      } catch (e) { toast(friendlyError(e)); }
+      finally { $("#btnSaveName").disabled = false; }
+    };
+    $("#btnSaveName").onclick = save;
+    $("#inpMyName").onkeydown = (e) => { if (e.key === "Enter") save(); };
+  });
+}
+
+function showMyName() {
+  $("#btnRename").hidden = !myName;
+  $("#btnRename").textContent = `${myName}・改名`;
+}
+
+$("#btnRename").onclick = async () => {
+  await askName();
+  if (room) render();
+};
 
 /* ---------------- 選擇 / 建立桌 ---------------- */
 let roomsUnsub = null;
@@ -135,6 +190,7 @@ async function enterRoom(c, silent = false) {
   unsubs.push(onSnapshot(query(collection(db, "rooms", c, "groups"), orderBy("createdAt")), (s) => {
     groups = s.docs.map((d) => ({ id: d.id, ...d.data() }));
     myGroup = groups.find((g) => (g.members || []).includes(uid)) || null;
+    names.ensure(groups.flatMap((g) => g.members || []));
     syncWordListener();
     render();
   }, (e) => toast(friendlyError(e))));
@@ -237,6 +293,7 @@ $("#scroll").onclick = () => { covered = !covered; renderWord(); };
 
 function render() {
   if (!room) return;
+  if (!$("[data-view=name]").hidden) return; // 正在輸入名字
   if (!myGroup) {
     showView("group");
     renderJoinList();
@@ -244,7 +301,7 @@ function render() {
   }
   showView("play");
   $("#myGroupName").textContent = myGroup.name;
-  $("#myGroupMeta").textContent = `${(myGroup.members || []).length} 位組員`;
+  $("#myGroupMeta").textContent = `組員（${(myGroup.members || []).length}）：${names.list(myGroup.members)}`;
   $("#btnLeave").hidden = room.status !== "lobby";
 
   const st = room.status;
@@ -293,9 +350,11 @@ function renderJoinList() {
   $("#joinEmpty").hidden = groups.length > 0;
   list.innerHTML = groups.map((g) => `
     <li class="group-item ${g.eliminated ? "out" : ""}">
-      <span class="name">${esc(g.name)}</span>
-      <span class="muted">${(g.members || []).length} 人</span>
-      <span class="grow"></span>
+      <span class="grow" style="min-width:0">
+        <span class="name">${esc(g.name)}</span>
+        <span class="muted">${(g.members || []).length} 人</span>
+        <span class="member-names">${esc(names.list(g.members))}</span>
+      </span>
       <button class="btn small" data-id="${g.id}">加入</button>
     </li>`).join("");
   list.querySelectorAll("button").forEach((b) => { b.onclick = () => joinGroup(b.dataset.id); });

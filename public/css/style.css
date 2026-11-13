@@ -376,3 +376,5 @@ label { font-size: .9rem; color: var(--ink-soft); }
 .lobby.solo { grid-template-columns: auto auto; justify-content: center; gap: 6vw; }
 .qr-card .qr-glyph { font-size: clamp(1.4rem, 2.6vw, 2.2rem); letter-spacing: .4em; color: var(--porcelain); margin-top: 8px; }
 .qr-card .qr-url { font-size: .9rem; color: var(--ink-faint); word-break: break-all; max-width: min(34vh, 360px); margin: 4px auto 0; }
+.member-names { display: block; font-size: .85rem; color: var(--ink-soft); margin-top: 2px; word-break: break-all; }
+.big-name-input { font-size: 1.6rem !important; text-align: center; letter-spacing: .15em; }

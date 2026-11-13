@@ -1,4 +1,4 @@
-import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, CN_NUM, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
+import { db, $, esc, toast, showView, remainingSeconds, fmtTime, randomId, friendlyError, createRoom, createNameBook, CN_NUM, DEFAULT_QUESTIONS, normalizeQuestions, questionProblem } from "./common.js";
 import { initHostAuth } from "./host-auth.js";
 import {
   doc, getDoc, updateDoc, collection, onSnapshot, query, orderBy,
@@ -20,6 +20,7 @@ let questions = normalizeQuestions(DEFAULT_QUESTIONS);
 let bankSaved = false;
 let unsubs = [];
 let tick = null;
+const names = createNameBook(() => renderDetail());
 
 /* ---------------- 登入 ---------------- */
 initHostAuth((u, isHost) => {
@@ -316,6 +317,7 @@ function renderDetail() {
   $("#roomDetail").hidden = !r;
   if (!r) return;
   const gs = groupsByRoom.get(r.id) || [];
+  names.ensure(gs.flatMap((g) => g.members || []));
   $("#detailName").textContent = r.name || r.id;
   $("#detailMeta").textContent = `（${gs.length} 組，${gs.filter((g) => !g.eliminated).length} 組在場）`;
   $("#groupEmpty").hidden = gs.length > 0;
@@ -325,8 +327,11 @@ function renderDetail() {
   }
   $("#groupList").innerHTML = gs.map((g) => `
     <li class="group-item ${g.eliminated ? "out" : ""}">
-      <span class="name">${esc(g.name)}</span>
-      <span class="muted">${(g.members || []).length} 人</span>
+      <span style="min-width:0">
+        <span class="name">${esc(g.name)}</span>
+        <span class="muted">${(g.members || []).length} 人</span>
+        <span class="member-names">${esc(names.list(g.members))}</span>
+      </span>
       ${live && selectedSecret.spyGroupId === g.id ? '<span class="tag red">臥底</span>' : ""}
       ${g.eliminated ? '<span class="tag grey">出局</span>' : ""}
       <span class="grow"></span>

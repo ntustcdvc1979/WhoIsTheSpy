@@ -1,7 +1,7 @@
 // 共用：Firebase 初始化與小工具
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc as fsDoc, onSnapshot as fsOnSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // 設定來源（金鑰不寫死在程式碼、也不進 git）：
 // 1. 部署在 Firebase Hosting：自動讀取 /__/firebase/init.json
 // 2. 本機開發：讀取 public/js/firebase-config.js（已被 .gitignore 排除，可由 firebase-config.example.js 複製）
@@ -161,4 +161,35 @@ export function friendlyError(e) {
   if (c.includes("operation-not-allowed")) return "Firebase 尚未啟用此登入方式";
   if (c.includes("popup-closed")) return "已取消登入";
   return e?.message || String(e);
+}
+
+/**
+ * 玩家名字簿：依需要訂閱 players/{uid}，名字變動時呼叫 onChange
+ * 用法：book.ensure(uids)；book.get(uid)；book.list(uids) → "王小明、李大華"
+ */
+export function createNameBook(onChange) {
+  const names = new Map();
+  const subs = new Map();
+  let pending = false;
+  const notify = () => {
+    if (pending) return;
+    pending = true;
+    queueMicrotask(() => { pending = false; onChange(); });
+  };
+  return {
+    ensure(uids) {
+      for (const u of uids || []) {
+        if (subs.has(u)) continue;
+        subs.set(u, fsOnSnapshot(fsDoc(db, "players", u), (s) => {
+          names.set(u, s.data()?.name || "");
+          notify();
+        }, () => {}));
+      }
+    },
+    get(uid) { return names.get(uid) || ""; },
+    list(uids, sep = "、") {
+      return (uids || []).map((u) => names.get(u) || "（未命名）").join(sep);
+    },
+    clear() { subs.forEach((off) => off()); subs.clear(); names.clear(); },
+  };
 }
