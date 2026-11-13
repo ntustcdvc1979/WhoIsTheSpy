@@ -393,3 +393,72 @@ label { font-size: .9rem; color: var(--ink-soft); }
 .q-add:hover { border-color: var(--porcelain); color: var(--porcelain); }
 .q-preview-round { margin: 10px 0 2px; font-weight: 700; color: var(--porcelain); letter-spacing: .15em; }
 .q-preview-round.next { color: var(--cinnabar); }
+
+/* =========================================================
+   主持人頁：手機直式
+   ========================================================= */
+.mobile-only { display: none !important; }
+.group-item .name { white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .mobile-only { display: inline-flex !important; }
+  .page-host .wrap { padding: 12px 12px 48px; }
+  .page-host .card { padding: 16px 14px; }
+  .page-host .card + .card, .page-host .grid-2 > div + div { margin-top: 14px; }
+  .page-host .grid-2 { gap: 0; }
+
+  /* 頂列：品牌與帳號分兩行，導覽頁籤不斷行 */
+  .page-host .topbar { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+  .page-host .brand { gap: 10px; }
+  .page-host .brand-title { font-size: 1.2rem; letter-spacing: .15em; }
+  .page-host .seal { width: 40px; height: 40px; font-size: .95rem; }
+  .host-nav a { white-space: nowrap; padding: 4px 12px; font-size: .95rem; }
+  .page-host #userBox { margin-left: auto; }
+  .page-host #userName { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }
+
+  /* 狀態 + 倒數 固定在畫面頂端，捲動時仍看得到 */
+  .host-strip {
+    position: sticky; top: 0; z-index: 20;
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+    padding: 10px 14px; margin: 0 -12px 14px; border-radius: 0;
+    box-shadow: 0 4px 12px rgba(13, 33, 64, .25);
+  }
+  .host-strip > div:nth-child(2) { text-align: right !important; }
+  .host-strip .code { font-size: 1.25rem !important; letter-spacing: .1em !important; }
+  .host-strip .timer { font-size: 1.6rem; line-height: 1.2; }
+  .host-strip .strip-links { display: none; }
+
+  /* 主要按鈕更好按 */
+  #btnStartAll { font-size: 1.3rem !important; padding: 16px !important; }
+  #btnRevealAll, #btnLobbyAll { padding: 14px 8px; letter-spacing: .05em; }
+  .btn.small { min-height: 38px; padding: 6px 12px; }
+
+  /* 列表：名稱一行，其餘資訊換到下一行 */
+  .group-item { flex-wrap: wrap; row-gap: 4px; }
+  .group-item > .muted { order: 3; flex-basis: 100%; font-size: .85rem; }
+  .q-preview li { grid-template-columns: 34px 1fr 1fr; font-size: .95rem; }
+  .q-preview .q-no { font-size: .9rem; }
+
+  /* 題目設計頁 */
+  .q-toolbar { align-items: stretch; }
+  .q-toolbar .row { width: 100%; }
+  .q-toolbar .row .btn { flex: 1; }
+  .q-cards { grid-template-columns: 1fr; gap: 12px; }
+  .q-add { min-height: 64px; }
+  .round-head h3 { font-size: 1.2rem; }
+}
+@media (max-width: 640px) {
+  .q-toolbar .row {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0;
+    background: var(--paper); border-top: 1px solid var(--paper-3);
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 12px rgba(29, 27, 24, .1);
+  }
+  .q-toolbar #saveState { flex-basis: 100%; font-size: .8rem; text-align: center; }
+  [data-view="editor"] { padding-bottom: 110px; }
+}
+.card-title { flex-wrap: wrap; }
+#detailName { white-space: nowrap; }
+@media (max-width: 640px) {
+  #detailMeta { flex-basis: 100%; font-size: .85rem; font-weight: 400; letter-spacing: 0; padding-left: 16px; }
+}

@@ -51,7 +51,7 @@
 
     <!-- 主控台 -->
     <section data-view="dash" hidden>
-      <div class="status-strip">
+      <div class="status-strip host-strip">
         <div>
           <div class="muted" style="color:#9fb3d1">全場狀態</div>
           <div class="code" style="font-size:1.6rem;letter-spacing:.2em" id="statusText">待命中</div>
@@ -60,7 +60,7 @@
           <div class="muted" style="color:#9fb3d1">倒數</div>
           <div class="timer" id="hostTimer">–:––</div>
         </div>
-        <div class="row">
+        <div class="row strip-links">
           <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" href="screen.html" target="_blank">開投影幕</a>
           <a class="btn ghost small" style="color:var(--paper);border-color:#9fb3d1" href="player.html" target="_blank">玩家頁</a>
         </div>
@@ -95,6 +95,9 @@
             </div>
             <p class="muted" id="ctrlHint" style="margin:10px 0 0"></p>
             <div class="row" style="justify-content:flex-end;margin-top:8px">
+              <a class="btn ghost small mobile-only" href="screen.html" target="_blank">開投影幕</a>
+              <a class="btn ghost small mobile-only" href="player.html" target="_blank">玩家頁</a>
+              <span class="grow mobile-only"></span>
               <button class="btn ghost small" id="btnResetRounds">重置輪次（新的一場）</button>
             </div>
           </div>
